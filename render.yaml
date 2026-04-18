@@ -1,0 +1,18 @@
+# Render Blueprint — creates a Web Service at https://whacked-api.onrender.com
+# (when the name `whacked-api` is available on your account).
+#
+# If you already have a service with a different URL: Dashboard → that service →
+# Settings → rename it to `whacked-api`, then redeploy. Default URL follows the name.
+#
+# Env vars: set in the Render dashboard (secrets), not committed here.
+
+services:
+  - type: web
+    name: whacked-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
