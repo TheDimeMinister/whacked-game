@@ -1,0 +1,92 @@
+/* eslint-disable react-refresh/only-export-components -- hook colocated with provider */
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import type { Session, User } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+type AuthCtx = {
+  supabase: SupabaseClient
+  session: Session | null
+  user: User | null
+  loading: boolean
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  signOut: () => Promise<void>
+}
+
+const Ctx = createContext<AuthCtx | null>(null)
+
+export function AuthProvider({
+  supabase,
+  children,
+}: {
+  supabase: SupabaseClient
+  children: ReactNode
+}) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setLoading(false)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase])
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      return { error: error as Error | null }
+    },
+    [supabase],
+  )
+
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const { error } = await supabase.auth.signUp({ email, password })
+      return { error: error as Error | null }
+    },
+    [supabase],
+  )
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut()
+  }, [supabase])
+
+  const value = useMemo(
+    () => ({
+      supabase,
+      session,
+      user: session?.user ?? null,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+    }),
+    [supabase, session, loading, signIn, signUp, signOut],
+  )
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+export function useAuth() {
+  const v = useContext(Ctx)
+  if (!v) throw new Error('useAuth outside AuthProvider')
+  return v
+}
