@@ -1,8 +1,9 @@
-# Render Blueprint — creates a Web Service at https://whacked-api.onrender.com
-# (when the name `whacked-api` is available on your account).
+# Render Blueprint — new Web Services get https://whacked-api.onrender.com when
+# the slug `whacked-api` is available at creation time.
 #
-# If you already have a service with a different URL: Dashboard → that service →
-# Settings → rename it to `whacked-api`, then redeploy. Default URL follows the name.
+# Renaming an existing service usually does NOT change its default *.onrender.com
+# hostname. For a clean URL on an old service, use Custom Domains in the dashboard
+# or migrate to a freshly named service and copy env vars.
 #
 # Env vars: set in the Render dashboard (secrets), not committed here.
 
