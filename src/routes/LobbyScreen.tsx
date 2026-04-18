@@ -274,6 +274,18 @@ export function LobbyScreen() {
   )
   const total = membersQ.data?.length ?? 0
 
+  /** Matches server start_game: ready members plus host even if host did not click Ready */
+  const inMatchCount = useMemo(() => {
+    const hostId = lobbyQ.data?.host_id
+    if (!membersQ.data || !hostId) return 0
+    const ids = new Set<string>()
+    for (const m of membersQ.data) {
+      if (m.left_at) continue
+      if (m.ready || m.user_id === hostId) ids.add(m.user_id)
+    }
+    return ids.size
+  }, [membersQ.data, lobbyQ.data?.host_id])
+
   const isHost = lobbyQ.data?.host_id === user?.id
   const isAdminHost =
     isHost && profileSelfQ.data?.app_role === 'admin'
@@ -387,7 +399,8 @@ export function LobbyScreen() {
           ))}
         </ul>
         <p className="muted small">
-          Ready players: {readyCount} / {total} (need 4+ ready to start)
+          Ready: {readyCount} / {total}. In the match when you start: {inMatchCount}{' '}
+          (includes host even without Ready — need 4+).
         </p>
       </section>
 
@@ -461,7 +474,7 @@ export function LobbyScreen() {
               setErr(null)
               startMut.mutate()
             }}
-            disabled={startMut.isPending || readyCount < 4 || total < 4}
+            disabled={startMut.isPending || inMatchCount < 4 || total < 4}
           >
             {startMut.isPending ? 'Starting…' : 'Start game'}
           </button>
