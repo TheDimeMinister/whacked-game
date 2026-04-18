@@ -13,6 +13,7 @@ See `.env.example` for Render / Vercel notes.
 
 ## Production (Vercel + Render)
 
-- **Vercel** (`vercel.json`) proxies `/api/*` to **`https://whacked-api.onrender.com`**.
-- **Render:** In the dashboard, open your Web Service → **Settings** → set **Name** to **`whacked-api`**, then save. Render will serve the API at `https://whacked-api.onrender.com` (rename before or right after deploying so `GET /api/health` returns `{"ok":true}` on that host).
+- **Vercel** (`vercel.json`) proxies `/api/*` to your Render Web Service. The destination host must match the **exact** `.onrender.com` URL shown in the Render dashboard for the service that runs `backend/` (see **Settings → Name / URL**).
+- **If `https://whacked-api.onrender.com/api/health` is “Not Found”:** that usually means **no Web Service uses that hostname yet**. A quick check: `curl -sI https://whacked-api.onrender.com/api/health` — if you see **`x-render-routing: no-server`**, Render is not routing to any app on that subdomain (not an Express route bug). Your live API is still on whatever URL Render lists for the service you actually deploy (for example the longer default hostname until you rename it).
+- **Shorter URL:** open the **same** Web Service that already deploys this repo’s `backend/` → **Settings** → set **Name** to **`whacked-api`** → save, then wait for the dashboard URL to show `https://whacked-api.onrender.com`. Confirm `GET /api/health` returns `{"ok":true}` on that host, then update `vercel.json` `destination` to `https://whacked-api.onrender.com/api/:path*` and redeploy Vercel. Avoid creating a second empty service named `whacked-api`; rename the existing API service instead.
 - Optional: [`render.yaml`](render.yaml) documents the same service for Blueprints / new installs; env vars stay in the Render dashboard.
