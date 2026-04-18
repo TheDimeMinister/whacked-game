@@ -23,6 +23,14 @@ app.use(
 )
 app.use(express.json())
 
+// Visiting the bare Render URL (/) shows something helpful; health for monitors is /api/health
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    message: 'Whacked API — open GET /api/health for the health check',
+  })
+})
+
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ ok: true })
 })
