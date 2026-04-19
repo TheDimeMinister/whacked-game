@@ -24,3 +24,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS / tooling
+**/.DS_Store
+
+# Capacitor iOS (add with `npx cap add ios` on macOS — CocoaPods)
+ios/App/Pods/
+ios/App/build/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/

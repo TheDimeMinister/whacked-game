@@ -18,3 +18,29 @@ See `.env.example` for Render / Vercel notes.
 - **Renaming the service in the dashboard often does not change the default `*.onrender.com` URL.** That hostname is tied to how the service was **first** created (the initial slug). Your app can keep using the long URL forever; `vercel.json` only needs to match whatever Render shows for that service.
 - **If you want a short, stable public URL:** add a **custom domain** on that Web Service (Render **Settings → Custom Domains**), e.g. `api.yourdomain.com`, then point `vercel.json` at `https://api.yourdomain.com/api/:path*`. Alternatively, create a **new** Web Service whose name from day one is `whacked-api` (copy env/build/start from the old one), verify health, update `vercel.json`, then delete the old service.
 - Optional: [`render.yaml`](render.yaml) documents the same service for Blueprints / new installs; env vars stay in the Render dashboard.
+
+## Mobile (Capacitor)
+
+Native shells load the same Vite build as the website (`webDir`: `dist`). App id: `app.whacked.game` (change in [`capacitor.config.ts`](capacitor.config.ts) before store submission if you use a different bundle id).
+
+**Prerequisites**
+
+- Node 20+ (see `engines` in `package.json`).
+- **Android:** Android Studio + SDK. **iOS:** macOS + Xcode + [CocoaPods](https://capacitorjs.com/docs/getting-started/environment-setup#ios-requirements) (Capacitor docs).
+
+**Workflow**
+
+1. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the environment (same as web), then:
+2. `npm run build:cap` — runs `tsc` + Vite build, then `cap sync` to copy `dist/` into the native projects.
+
+**Open in IDEs**
+
+- Android: `npm run cap:open:android`
+- iOS: add the platform once on a Mac (`npx cap add ios`), then `npm run cap:open:ios`
+
+**Store binaries (not done by npm)**
+
+- **Google Play:** build a signed **Android App Bundle (`.aab`)** from Android Studio (or Gradle) and upload in Play Console.
+- **App Store:** **Archive → Distribute App** from Xcode to App Store Connect.
+
+This repo currently includes the **Android** project. **iOS** must be generated on a machine with CocoaPods: `npx cap add ios` then `npm run build:cap`.
