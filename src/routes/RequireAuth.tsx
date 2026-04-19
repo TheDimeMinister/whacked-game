@@ -6,7 +6,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) {
     return (
-      <div className="auth-screen">
+      <div className="brand-stage shell-loading">
         <p className="muted">Loading…</p>
       </div>
     )

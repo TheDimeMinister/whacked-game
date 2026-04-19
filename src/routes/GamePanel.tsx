@@ -81,12 +81,15 @@ export type GamePanelProps = {
   embedded?: boolean
   /** From case closed / cancelled: return to room lobby (ready + host Start game). */
   onLeavePostGame?: () => void
+  /** Embedded in room tab: open field manual (rules) from parent. */
+  onOpenFieldManual?: () => void
 }
 
 export function GamePanel({
   gameId,
   embedded = false,
   onLeavePostGame,
+  onOpenFieldManual,
 }: GamePanelProps) {
   const { supabase, user } = useAuth()
   const { setActiveGameId } = useGameSession()
@@ -490,6 +493,17 @@ export function GamePanel({
 
     return (
       <div className="screen game-screen case-file case-closed">
+        {embedded && onOpenFieldManual ? (
+          <p className="case-closed__rules-link">
+            <button
+              type="button"
+              className="linkish small"
+              onClick={() => onOpenFieldManual()}
+            >
+              Field manual
+            </button>
+          </p>
+        ) : null}
         <p className="case-file__title">After-action report</p>
         <h1 className="case-file__headline">Case closed</h1>
         {acceptedEvent && p ? (
@@ -585,7 +599,19 @@ export function GamePanel({
             Room
           </Link>
         ) : (
-          <span className="muted small">In this room</span>
+          <div className="game-header__embedded-actions">
+            <span className="muted small">In this room</span>
+            {onOpenFieldManual ? (
+              <button
+                type="button"
+                className="auth-rules-btn"
+                aria-label="Open field manual"
+                onClick={() => onOpenFieldManual()}
+              >
+                ?
+              </button>
+            ) : null}
+          </div>
         )}
       </header>
 

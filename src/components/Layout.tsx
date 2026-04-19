@@ -48,7 +48,7 @@ export function Layout() {
   }, [user?.id, activeLobbyId, supabase, navigate, setActiveGameId, qc])
 
   return (
-    <div className="app-shell">
+    <div className="app-shell brand-stage">
       <main className="app-main">
         <Outlet />
       </main>

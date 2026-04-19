@@ -7,16 +7,19 @@ export function WelcomeScreen() {
   const [rulesOpen, setRulesOpen] = useState(false)
 
   return (
-    <div className="welcome-screen">
-      <div className="welcome-inner">
-        <h1 className="brand welcome-brand">Whacked!</h1>
-        <p className="tagline welcome-tagline">
-          Off-the-books transfers. On-the-record nonsense.
-        </p>
+    <div className="welcome-screen brand-stage">
+      <div className="welcome-inner welcome-inner--glass">
+        <h1 className="welcome-brand">
+          <img
+            src="/brand/whacked-logo.png"
+            alt="Whacked!"
+            className="welcome-brand__img"
+            decoding="async"
+          />
+        </h1>
+        <p className="tagline welcome-tagline">The Office Assassination Game</p>
         <p className="muted small welcome-blurb">
-          A social stealth game: draw a harmless &quot;piece,&quot; pick up your
-          mark in the room, and file the hit when the handoff is done. No
-          spreadsheets. No alibis.
+          Become a secret agent. Accept your contract. Eliminate your target.
         </p>
         <div className="btn-row welcome-actions">
           <button

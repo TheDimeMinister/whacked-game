@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { RulesModal } from '../components/RulesModal'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
 import { GamePanel } from './GamePanel'
@@ -40,6 +41,7 @@ export function LobbyScreen() {
   const [joinName, setJoinName] = useState('')
   const [botLabel, setBotLabel] = useState('Bot')
   const [err, setErr] = useState<string | null>(null)
+  const [rulesOpen, setRulesOpen] = useState(false)
   /** After case closed, hide embedded game until a new active game (same id + ended = stay on room UI). */
   const [postGameDismissedGameId, setPostGameDismissedGameId] = useState<
     string | null
@@ -414,50 +416,65 @@ export function LobbyScreen() {
       )
     }
     return (
-      <div className="screen lobby-screen">
-        <h1>Room</h1>
-        <p className="muted">Create a room or join with a code.</p>
-        {err ? <p className="error">{err}</p> : null}
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => {
-            setErr(null)
-            createMut.mutate()
-          }}
-          disabled={createMut.isPending}
-        >
-          {createMut.isPending ? 'Creating…' : 'Create lobby'}
-        </button>
-        <label className="field">
-          <span>Invite code</span>
-          <input
-            value={inviteInput}
-            onChange={(e) => setInviteInput(e.target.value)}
-            placeholder="ABC123"
-            autoCapitalize="characters"
-          />
-        </label>
-        <label className="field">
-          <span>Display name (optional)</span>
-          <input
-            value={joinName}
-            onChange={(e) => setJoinName(e.target.value)}
-            placeholder="How you appear in the lobby"
-          />
-        </label>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            setErr(null)
-            joinMut.mutate()
-          }}
-          disabled={joinMut.isPending || !inviteInput.trim()}
-        >
-          {joinMut.isPending ? 'Joining…' : 'Join lobby'}
-        </button>
-      </div>
+      <>
+        <div className="screen lobby-screen">
+          <header className="lobby-screen__head glass-surface">
+            <h1>Room</h1>
+            <button
+              type="button"
+              className="auth-rules-btn"
+              aria-label="Open field manual"
+              onClick={() => setRulesOpen(true)}
+            >
+              ?
+            </button>
+          </header>
+          <div className="lobby-screen__sheet glass-surface">
+            <p className="muted">Create a room or join with a code.</p>
+            {err ? <p className="error">{err}</p> : null}
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                setErr(null)
+                createMut.mutate()
+              }}
+              disabled={createMut.isPending}
+            >
+              {createMut.isPending ? 'Creating…' : 'Create lobby'}
+            </button>
+            <label className="field">
+              <span>Invite code</span>
+              <input
+                value={inviteInput}
+                onChange={(e) => setInviteInput(e.target.value)}
+                placeholder="ABC123"
+                autoCapitalize="characters"
+              />
+            </label>
+            <label className="field">
+              <span>Display name (optional)</span>
+              <input
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="How you appear in the lobby"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setErr(null)
+                joinMut.mutate()
+              }}
+              disabled={joinMut.isPending || !inviteInput.trim()}
+            >
+              {joinMut.isPending ? 'Joining…' : 'Join lobby'}
+            </button>
+          </div>
+        </div>
+        <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      </>
     )
   }
 
@@ -489,29 +506,54 @@ export function LobbyScreen() {
 
   if (lobbyQ.data.status !== 'open') {
     return (
-      <div className="screen lobby-screen">
-        <p className="muted">This room has ended.</p>
-        <Link to="/app/lobby" className="btn btn--primary">
-          Create or join a lobby
-        </Link>
-      </div>
+      <>
+        <div className="screen lobby-screen">
+          <p className="muted">This room has ended.</p>
+          <Link to="/app/lobby" className="btn btn--primary">
+            Create or join a lobby
+          </Link>
+          <button
+            type="button"
+            className="linkish"
+            onClick={() => setRulesOpen(true)}
+          >
+            Field manual
+          </button>
+        </div>
+        <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      </>
     )
   }
 
   if (showGamePanel && latestGame?.id) {
     return (
-      <GamePanel
-        key={latestGame.id}
-        gameId={latestGame.id}
-        embedded
-        onLeavePostGame={handleLeavePostGame}
-      />
+      <>
+        <GamePanel
+          key={latestGame.id}
+          gameId={latestGame.id}
+          embedded
+          onLeavePostGame={handleLeavePostGame}
+          onOpenFieldManual={() => setRulesOpen(true)}
+        />
+        <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      </>
     )
   }
 
   return (
-    <div className="screen lobby-screen">
-      <h1>Room</h1>
+    <>
+      <div className="screen lobby-screen">
+        <header className="lobby-screen__head glass-surface">
+          <h1>Room</h1>
+          <button
+            type="button"
+            className="auth-rules-btn"
+            aria-label="Open field manual"
+            onClick={() => setRulesOpen(true)}
+          >
+            ?
+          </button>
+        </header>
       {err ? <p className="error">{err}</p> : null}
       <section className="card">
         <p className="muted">Invite code</p>
@@ -648,6 +690,8 @@ export function LobbyScreen() {
       >
         Leave room
       </Link>
-    </div>
+      </div>
+      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
+    </>
   )
 }

@@ -11,13 +11,22 @@ import {
 import type { Session, User } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+export type SignUpExtra = {
+  /** Saved to `profiles.avatar_key` via signup metadata + `handle_new_user`. */
+  avatarKey?: string | null
+}
+
 type AuthCtx = {
   supabase: SupabaseClient
   session: Session | null
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (
+    email: string,
+    password: string,
+    extra?: SignUpExtra,
+  ) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -58,8 +67,13 @@ export function AuthProvider({
   )
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({ email, password })
+    async (email: string, password: string, extra?: SignUpExtra) => {
+      const key = extra?.avatarKey?.trim()
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        ...(key ? { options: { data: { avatar_key: key } } } : {}),
+      })
       return { error: error as Error | null }
     },
     [supabase],

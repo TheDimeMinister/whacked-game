@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AvatarMugshot } from '../components/AvatarMugshot'
+import { CharacterPickerModal } from '../components/CharacterPickerModal'
 import { useAuth } from '../providers/AuthProvider'
+import { getPresetPortraitUrl } from '../lib/characterPresets'
+import { resolveProfileAvatarUrl } from '../lib/resolveProfileAvatarUrl'
 import { TITLE_OPTIONS } from '../lib/titles'
 
 type ProfileRow = {
   id: string
   display_name: string | null
   equipped_title_id: string | null
+  avatar_key: string | null
   updated_at?: string
 }
 
@@ -21,11 +25,14 @@ type StatsRow = {
   badges: unknown
 }
 
+const DOSSIER_MUGSHOT_PX = 96
+
 export function ProfileScreen() {
-  const { supabase, user } = useAuth()
+  const { supabase, user, signOut } = useAuth()
   const qc = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
   const [filedBanner, setFiledBanner] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const profileQ = useQuery({
     queryKey: ['profile_me', user?.id],
@@ -33,7 +40,7 @@ export function ProfileScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, equipped_title_id, updated_at')
+        .select('id, display_name, equipped_title_id, avatar_key, updated_at')
         .eq('id', user!.id)
         .single()
       if (error) throw error
@@ -85,6 +92,25 @@ export function ProfileScreen() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['profile_me'] })
       setFiledBanner(true)
+    },
+  })
+
+  const avatarMut = useMutation({
+    mutationFn: async (avatarKey: string) => {
+      const src = getPresetPortraitUrl(avatarKey)
+      if (!src) throw new Error('Unknown portrait')
+      const { error: pErr } = await supabase
+        .from('profiles')
+        .update({ avatar_key: avatarKey })
+        .eq('id', user!.id)
+      if (pErr) throw pErr
+      const { error: aErr } = await supabase.auth.updateUser({
+        data: { avatar_url: src },
+      })
+      if (aErr) throw aErr
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['profile_me', user?.id] })
     },
   })
 
@@ -148,9 +174,7 @@ export function ProfileScreen() {
     return b.filter((x): x is string => typeof x === 'string')
   }, [statsQ.data?.badges])
 
-  const avatarUrl =
-    (user?.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ??
-    null
+  const avatarUrl = resolveProfileAvatarUrl(profileQ.data?.avatar_key, user)
   const codename =
     profileQ.data?.display_name?.trim() ||
     user?.email?.split('@')[0] ||
@@ -162,26 +186,68 @@ export function ProfileScreen() {
 
   return (
     <div className="screen profile-screen">
-      <h1>Dossier</h1>
+      <header className="profile-screen__head">
+        <h1>Dossier</h1>
+        <button
+          type="button"
+          className="profile-logout-btn"
+          aria-label="Sign out"
+          onClick={() => void signOut()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
+      </header>
 
       {profileQ.data ? (
-        <div className="dossier-card">
-          <div className="dossier-top">
+        <div
+          className="dossier-card glass-surface"
+          style={{ ['--dossier-mug-size' as string]: `${DOSSIER_MUGSHOT_PX}px` }}
+        >
+          <span className="dossier-confidential" aria-hidden="true">
+            CONFIDENTIAL
+          </span>
+          <div className="dossier-card__stack">
+            <div className="dossier-top">
             <div className="dossier-photo-wrap">
-              <AvatarMugshot
-                url={avatarUrl}
-                label={codename}
-                size={96}
-              />
+              <button
+                type="button"
+                className="dossier-photo-btn"
+                aria-label="Change operative portrait"
+                disabled={avatarMut.isPending}
+                onClick={() => setPickerOpen(true)}
+              >
+                <AvatarMugshot
+                  url={avatarUrl}
+                  label={codename}
+                  size={DOSSIER_MUGSHOT_PX}
+                />
+              </button>
             </div>
             <div className="dossier-meta">
               <p className="dossier-clearance">{clearance}</p>
               <h2 className="dossier-codename">{codename}</h2>
               <p className="dossier-title-line">Street name: {equippedTitleLabel}</p>
             </div>
-          </div>
+            </div>
+            {avatarMut.isError ? (
+              <p className="error small" style={{ marginTop: '0.35rem' }}>
+                Could not update portrait.
+              </p>
+            ) : null}
 
-          <div className="dossier-tallies">
+            <div className="dossier-tallies">
             <div className="dossier-tally">
               <span>Hits filed</span>
               <strong>{statsQ.data?.successful_whacks ?? 0}</strong>
@@ -210,9 +276,9 @@ export function ProfileScreen() {
               <span>Preferred piece</span>
               <strong>{favourite ?? '—'}</strong>
             </div>
-          </div>
+            </div>
 
-          <div className="dossier-badges">
+            <div className="dossier-badges">
             {badgeList.length ? (
               badgeList.map((b) => (
                 <span key={b} className="dossier-stamp">
@@ -222,9 +288,9 @@ export function ProfileScreen() {
             ) : (
               <span className="dossier-stamp">No stamps yet</span>
             )}
-          </div>
+            </div>
 
-          <details className="dossier-amend card">
+            <details className="dossier-amend card">
             <summary>Amend dossier</summary>
             <form
               key={formKey}
@@ -276,11 +342,18 @@ export function ProfileScreen() {
                 <p className="error">Bureau rejected the filing. Try again.</p>
               ) : null}
             </form>
-          </details>
+            </details>
+          </div>
         </div>
       ) : (
         <p className="muted">Decrypting dossier…</p>
       )}
+      <CharacterPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(id) => avatarMut.mutate(id)}
+        title="Operative portrait"
+      />
     </div>
   )
 }
