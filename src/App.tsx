@@ -3,6 +3,7 @@ import { Layout } from './components/Layout'
 import { useAuth } from './providers/AuthProvider'
 import { useGameSession } from './providers/GameSessionProvider'
 import { AuthScreen } from './routes/AuthScreen'
+import { WelcomeScreen } from './routes/WelcomeScreen'
 import { GameRedirect } from './routes/GameRedirect'
 import { LobbyScreen } from './routes/LobbyScreen'
 import { ProfileScreen } from './routes/ProfileScreen'
@@ -19,7 +20,7 @@ function HomeRedirect() {
     )
   }
   if (user) return <Navigate to="/app/lobby" replace />
-  return <Navigate to="/auth" replace />
+  return <Navigate to="/welcome" replace />
 }
 
 function AppHome() {
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
+      <Route path="/welcome" element={<WelcomeScreen />} />
       <Route path="/auth" element={<AuthScreen />} />
       <Route
         path="/app"

@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AvatarMugshot } from '../components/AvatarMugshot'
 import { HoldReveal } from '../components/HoldReveal'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
+import { useUiTone } from '../providers/UiToneProvider'
 
 type GameRow = {
   id: string
@@ -11,6 +13,7 @@ type GameRow = {
   status: 'active' | 'ended' | 'cancelled'
   winner_user_id: string | null
   ended_reason: string | null
+  created_at: string
 }
 
 type AssignmentRow = {
@@ -81,6 +84,7 @@ export type GamePanelProps = {
 export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
   const { supabase, user } = useAuth()
   const { setActiveGameId } = useGameSession()
+  const { setHeat } = useUiTone()
   const qc = useQueryClient()
   const [adminDebugOpen, setAdminDebugOpen] = useState(false)
 
@@ -104,13 +108,19 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('games')
-        .select('id, lobby_id, status, winner_user_id, ended_reason')
+        .select('id, lobby_id, status, winner_user_id, ended_reason, created_at')
         .eq('id', gameId)
         .single()
       if (error) throw error
       return data as GameRow
     },
   })
+
+  useEffect(() => {
+    if (gameQ.data?.status !== 'active') return
+    setHeat(true)
+    return () => setHeat(false)
+  }, [gameQ.data?.status, setHeat])
 
   const assignmentQ = useQuery({
     queryKey: ['assignment', gameId, user?.id],
@@ -193,6 +203,28 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
   })
 
   const acceptedEvent = eventsQ.data?.find((e) => e.event_type === 'whack_accepted')
+
+  const startedEvent = useMemo(
+    () => eventsQ.data?.find((e) => e.event_type === 'game_started'),
+    [eventsQ.data],
+  )
+
+  const caseElapsed = useMemo(() => {
+    if (!acceptedEvent?.created_at || !gameQ.data) return null
+    const end = new Date(acceptedEvent.created_at).getTime()
+    const startIso = startedEvent?.created_at ?? gameQ.data.created_at
+    const start = new Date(startIso).getTime()
+    if (Number.isNaN(start) || Number.isNaN(end)) return null
+    const ms = Math.max(0, end - start)
+    const DAY = 86400000
+    const days = Math.floor(ms / DAY)
+    const rem = ms % DAY
+    const totalSec = Math.floor(rem / 1000)
+    const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0')
+    const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0')
+    const ss = String(totalSec % 60).padStart(2, '0')
+    return { days, clock: `${hh}:${mm}:${ss}` }
+  }, [acceptedEvent, startedEvent, gameQ.data])
 
   const revealIds = useMemo(() => {
     if (!acceptedEvent?.payload) return [] as string[]
@@ -355,18 +387,18 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
     const top = eventsQ.data?.[0]
     if (!top) return null
     if (top.event_type === 'whack_declared') {
-      return 'A Whack has been declared!'
+      return 'Contract is in the air — someone filed a hit.'
     }
     if (top.event_type === 'whack_declined') {
       const w = (top.payload as { weapon_name?: string }).weapon_name
-      return `A Whack was attempted — weapon: ${w ?? 'unknown'}`
+      return `Heat fizzled — piece was: ${w ?? 'unknown'}`
     }
     if (top.event_type === 'whack_accepted') {
       const p = top.payload as { weapon_name?: string }
-      return `Game over — winning weapon: ${p.weapon_name ?? '?'}`
+      return `Case closed — winning piece: ${p.weapon_name ?? '?'}`
     }
     if (top.event_type === 'game_started') {
-      return 'Game is live. Stay sharp.'
+      return 'Operation live. Watch your back.'
     }
     return null
   }, [eventsQ.data])
@@ -426,7 +458,7 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
   if (gameQ.isLoading) {
     return (
       <div className="screen">
-        <p className="muted">Loading game…</p>
+        <p className="muted">Opening file…</p>
       </div>
     )
   }
@@ -465,24 +497,96 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
         : undefined
     const isHost = lobbyMiniQ.data?.host_id === user?.id
 
+    const hitterLabel = whackerName ?? '…'
+    const targetLabel = victimName ?? '…'
+
     return (
-      <div className="screen game-screen">
-        <h1>Game ended</h1>
+      <div className="screen game-screen case-file">
+        <p className="case-file__title">After-action report</p>
+        <h1 className="case-file__headline">Case closed</h1>
         {banner ? <p className="banner">{banner}</p> : null}
         {acceptedEvent && p ? (
           <section className="card reveal-card">
-            <h2>Reveal</h2>
-            <p>
-              Whacker: <strong>{whackerName ?? '…'}</strong>
-              {p.whacker_id === user?.id ? ' (you)' : ''}
-            </p>
-            <p>
-              Victim: <strong>{victimName ?? '…'}</strong>
-              {p.victim_id === user?.id ? ' (you)' : ''}
-            </p>
-            <p>
-              Weapon: <strong>{p.weapon_name ?? '?'}</strong>
-            </p>
+            <div className="case-board">
+              <div className="case-mug">
+                <p className="role">Hitter</p>
+                <AvatarMugshot label={hitterLabel} size={80} />
+                <p>
+                  <strong>{hitterLabel}</strong>
+                  {p.whacker_id === user?.id ? ' (you)' : ''}
+                </p>
+              </div>
+              <svg
+                className="case-string-svg case-string--h"
+                viewBox="0 0 120 28"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <path
+                  d="M0,14 C35,4 85,24 120,14"
+                  fill="none"
+                  stroke="var(--danger)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <svg
+                className="case-string-svg case-string--v"
+                viewBox="0 0 28 100"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <path
+                  d="M14,0 C4,35 24,85 14,100"
+                  fill="none"
+                  stroke="var(--danger)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="case-mug case-kia">
+                <p className="role">Target</p>
+                <AvatarMugshot label={targetLabel} size={80} />
+                <p>
+                  <strong>{targetLabel}</strong>
+                  {p.victim_id === user?.id ? ' (you)' : ''}
+                </p>
+              </div>
+            </div>
+            <div className="case-details">
+              <p>
+                <span className="muted">Piece used:</span>{' '}
+                <strong>{p.weapon_name ?? '?'}</strong>
+              </p>
+              {caseElapsed ? (
+                <>
+                  <p className="muted small" style={{ marginTop: '0.65rem' }}>
+                    Time on the street (since go-live)
+                  </p>
+                  <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.15rem' }}>
+                    {caseElapsed.clock}
+                  </p>
+                  {caseElapsed.days > 0 ? (
+                    <div className="case-tally-row">
+                      <span className="muted small">Day marks</span>
+                      <span className="case-tally-marks" aria-label={`${caseElapsed.days} days`}>
+                        {Array.from(
+                          { length: Math.min(caseElapsed.days, 28) },
+                          (_, i) => (
+                            <span key={i} className="tally-stroke">
+                              |
+                            </span>
+                          ),
+                        )}
+                        {caseElapsed.days > 28 ? (
+                          <span className="muted small"> +{caseElapsed.days - 28}</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           </section>
         ) : null}
         <div className="btn-row">
@@ -528,10 +632,10 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
       {banner ? <p className="banner subtle">{banner}</p> : null}
 
       <section className="card targets">
-        <HoldReveal label="Your weapon" className="hold-reveal--compact">
+        <HoldReveal label="Your piece" className="hold-reveal--compact">
           <span className="reveal-line">{myWeapon?.name ?? '…'}</span>
         </HoldReveal>
-        <HoldReveal label="Your target" className="hold-reveal--compact">
+        <HoldReveal label="Your mark" className="hold-reveal--compact">
           <span className="reveal-line">
             {targetProfileQ.data?.display_name ?? 'Unknown'}
           </span>
@@ -559,8 +663,8 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
       {isTarget ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal">
-            <h2>You have been Whacked?</h2>
-            <p className="muted">Someone declared a successful transfer.</p>
+            <h2>They filed on you?</h2>
+            <p className="muted">Someone says the piece landed. Your call.</p>
             <div className="btn-row">
               <button
                 type="button"
@@ -585,7 +689,7 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
 
       {pendingWhackQ.data?.declarer_id === user?.id &&
       pendingWhackQ.data?.status === 'pending_target' ? (
-        <p className="muted center">Waiting for your target to respond…</p>
+        <p className="muted center">Waiting on your mark to answer…</p>
       ) : null}
 
       {isAdminHost ? (

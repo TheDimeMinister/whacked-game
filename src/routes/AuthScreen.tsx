@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { RulesModal } from '../components/RulesModal'
 import { useAuth } from '../providers/AuthProvider'
 
 export function AuthScreen() {
@@ -9,6 +10,7 @@ export function AuthScreen() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [rulesOpen, setRulesOpen] = useState(false)
 
   if (loading) {
     return (
@@ -34,7 +36,17 @@ export function AuthScreen() {
 
   return (
     <div className="auth-screen">
-      <h1 className="brand">Whacked!</h1>
+      <div className="auth-screen__head">
+        <h1 className="brand">Whacked!</h1>
+        <button
+          type="button"
+          className="linkish auth-rules-btn"
+          aria-label="Open field manual"
+          onClick={() => setRulesOpen(true)}
+        >
+          ?
+        </button>
+      </div>
       <p className="tagline">Real-world stealth. Minimal evidence.</p>
       <form className="auth-form" onSubmit={submit}>
         <label className="field">
@@ -75,6 +87,10 @@ export function AuthScreen() {
           ? 'Need an account? Sign up'
           : 'Already have an account? Sign in'}
       </button>
+      <Link to="/welcome" className="linkish small auth-back">
+        Back to briefing
+      </Link>
+      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </div>
   )
 }

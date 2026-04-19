@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AvatarMugshot } from '../components/AvatarMugshot'
 import { useAuth } from '../providers/AuthProvider'
 import { TITLE_OPTIONS } from '../lib/titles'
 
@@ -24,6 +25,7 @@ export function ProfileScreen() {
   const { supabase, user } = useAuth()
   const qc = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
+  const [filedBanner, setFiledBanner] = useState(false)
 
   const profileQ = useQuery({
     queryKey: ['profile_me', user?.id],
@@ -58,9 +60,7 @@ export function ProfileScreen() {
   const weaponsQ = useQuery({
     queryKey: ['all_weapons_labels'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('weapons')
-        .select('id, name')
+      const { data, error } = await supabase.from('weapons').select('id, name')
       if (error) throw error
       return (data ?? []) as { id: string; name: string }[]
     },
@@ -84,8 +84,18 @@ export function ProfileScreen() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['profile_me'] })
+      setFiledBanner(true)
     },
   })
+
+  useEffect(() => {
+    if (!filedBanner) return
+    const t = window.setTimeout(() => {
+      setFiledBanner(false)
+      saveMut.reset()
+    }, 2200)
+    return () => window.clearTimeout(t)
+  }, [filedBanner, saveMut])
 
   const favourite = useMemo(() => {
     const wc = statsQ.data?.weapon_counts
@@ -118,102 +128,159 @@ export function ProfileScreen() {
     return `${Math.round((w / d) * 100)}%`
   }, [statsQ.data])
 
+  const equippedTitleLabel = useMemo(() => {
+    const id = profileQ.data?.equipped_title_id ?? TITLE_OPTIONS[0].id
+    return TITLE_OPTIONS.find((t) => t.id === id)?.label ?? 'Unknown'
+  }, [profileQ.data?.equipped_title_id])
+
+  const clearance = useMemo(() => {
+    const w = statsQ.data?.wins ?? 0
+    if (w >= 20) return 'Level V clearance'
+    if (w >= 10) return 'Level IV clearance'
+    if (w >= 5) return 'Level III clearance'
+    if (w >= 1) return 'Level II clearance'
+    return 'Probationary asset'
+  }, [statsQ.data?.wins])
+
+  const badgeList = useMemo(() => {
+    const b = statsQ.data?.badges
+    if (!Array.isArray(b)) return [] as string[]
+    return b.filter((x): x is string => typeof x === 'string')
+  }, [statsQ.data?.badges])
+
+  const avatarUrl =
+    (user?.user_metadata as { avatar_url?: string } | undefined)?.avatar_url ??
+    null
+  const codename =
+    profileQ.data?.display_name?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Unknown'
+
   const formKey = profileQ.data?.updated_at ?? profileQ.data?.id ?? 'profile'
 
   if (!user) return null
 
   return (
     <div className="screen profile-screen">
-      <h1>Profile</h1>
-      <section className="card">
-        <h2>Identity</h2>
-        {profileQ.data ? (
-          <form
-            key={formKey}
-            ref={formRef}
-            className="auth-form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              saveMut.mutate()
-            }}
-          >
-            <label className="field">
-              <span>Display name</span>
-              <input
-                name="display_name"
-                defaultValue={profileQ.data.display_name ?? ''}
+      <h1>Dossier</h1>
+
+      {profileQ.data ? (
+        <div className="dossier-card">
+          <div className="dossier-top">
+            <div className="dossier-photo-wrap">
+              <AvatarMugshot
+                url={avatarUrl}
+                label={codename}
+                size={96}
               />
-            </label>
-            <label className="field">
-              <span>Title</span>
-              <select
-                name="equipped_title_id"
-                defaultValue={
-                  profileQ.data.equipped_title_id ?? TITLE_OPTIONS[0].id
-                }
-              >
-                {TITLE_OPTIONS.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button className="btn btn--primary" type="submit" disabled={saveMut.isPending}>
-              {saveMut.isPending ? 'Saving…' : 'Save profile'}
-            </button>
-          </form>
-        ) : (
-          <p className="muted">Loading profile…</p>
-        )}
-      </section>
+            </div>
+            <div className="dossier-meta">
+              <p className="dossier-clearance">{clearance}</p>
+              <h2 className="dossier-codename">{codename}</h2>
+              <p className="dossier-title-line">Street name: {equippedTitleLabel}</p>
+            </div>
+          </div>
 
-      <section className="card">
-        <h2>Stats</h2>
-        <ul className="stat-grid">
-          <li>
-            <span className="stat-label">Wins</span>
-            <span className="stat-value">{statsQ.data?.wins ?? 0}</span>
-          </li>
-          <li>
-            <span className="stat-label">Losses</span>
-            <span className="stat-value">{statsQ.data?.losses ?? 0}</span>
-          </li>
-          <li>
-            <span className="stat-label">Whack declarations</span>
-            <span className="stat-value">
-              {statsQ.data?.total_whack_declarations ?? 0}
-            </span>
-          </li>
-          <li>
-            <span className="stat-label">Successful whacks</span>
-            <span className="stat-value">
-              {statsQ.data?.successful_whacks ?? 0}
-            </span>
-          </li>
-          <li>
-            <span className="stat-label">Attempt success</span>
-            <span className="stat-value">{attemptRate}</span>
-          </li>
-          <li>
-            <span className="stat-label">Win / (W+L)</span>
-            <span className="stat-value">{killRate}</span>
-          </li>
-          <li>
-            <span className="stat-label">Favourite weapon</span>
-            <span className="stat-value">{favourite ?? '—'}</span>
-          </li>
-        </ul>
-      </section>
+          <div className="dossier-tallies">
+            <div className="dossier-tally">
+              <span>Hits filed</span>
+              <strong>{statsQ.data?.successful_whacks ?? 0}</strong>
+            </div>
+            <div className="dossier-tally">
+              <span>Contracts floated</span>
+              <strong>{statsQ.data?.total_whack_declarations ?? 0}</strong>
+            </div>
+            <div className="dossier-tally">
+              <span>Heat index</span>
+              <strong>{attemptRate}</strong>
+            </div>
+            <div className="dossier-tally">
+              <span>Jobs closed (W)</span>
+              <strong>{statsQ.data?.wins ?? 0}</strong>
+            </div>
+            <div className="dossier-tally">
+              <span>Slips (L)</span>
+              <strong>{statsQ.data?.losses ?? 0}</strong>
+            </div>
+            <div className="dossier-tally">
+              <span>Win rate</span>
+              <strong>{killRate}</strong>
+            </div>
+            <div className="dossier-tally" style={{ minWidth: '7rem' }}>
+              <span>Preferred piece</span>
+              <strong>{favourite ?? '—'}</strong>
+            </div>
+          </div>
 
-      <section className="card">
-        <h2>Badges</h2>
-        <p className="muted small">
-          {Array.isArray(statsQ.data?.badges) && statsQ.data!.badges.length
-            ? (statsQ.data!.badges as string[]).join(', ')
-            : 'None yet — get your first accepted whack.'}
-        </p>
-      </section>
+          <div className="dossier-badges">
+            {badgeList.length ? (
+              badgeList.map((b) => (
+                <span key={b} className="dossier-stamp">
+                  {b}
+                </span>
+              ))
+            ) : (
+              <span className="dossier-stamp">No stamps yet</span>
+            )}
+          </div>
+
+          <details className="dossier-amend card">
+            <summary>Amend dossier</summary>
+            <form
+              key={formKey}
+              ref={formRef}
+              className="auth-form"
+              style={{ marginTop: '0.75rem' }}
+              onSubmit={(e) => {
+                e.preventDefault()
+                saveMut.mutate()
+              }}
+            >
+              <label className="field">
+                <span>Codename</span>
+                <input
+                  name="display_name"
+                  defaultValue={profileQ.data.display_name ?? ''}
+                />
+              </label>
+              <label className="field">
+                <span>Street name</span>
+                <select
+                  name="equipped_title_id"
+                  defaultValue={
+                    profileQ.data.equipped_title_id ?? TITLE_OPTIONS[0].id
+                  }
+                >
+                  {TITLE_OPTIONS.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="btn-row" style={{ alignItems: 'center' }}>
+                <button
+                  className="btn btn--primary btn--compact"
+                  type="submit"
+                  disabled={saveMut.isPending}
+                >
+                  {saveMut.isPending ? 'Filing…' : 'File changes'}
+                </button>
+                {filedBanner ? (
+                  <span className="dossier-filed" aria-live="polite">
+                    Filed
+                  </span>
+                ) : null}
+              </div>
+              {saveMut.isError ? (
+                <p className="error">Bureau rejected the filing. Try again.</p>
+              ) : null}
+            </form>
+          </details>
+        </div>
+      ) : (
+        <p className="muted">Decrypting dossier…</p>
+      )}
     </div>
   )
 }
