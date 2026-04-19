@@ -847,7 +847,7 @@ html[data-ui-tone='heat'] .whack-btn {
 
 /* Case file (game ended) */
 .case-file {
-  text-align: left;
+  text-align: center;
 }
 
 .case-file__title {
@@ -864,33 +864,29 @@ html[data-ui-tone='heat'] .whack-btn {
   letter-spacing: -0.02em;
 }
 
-.case-board {
-  position: relative;
+.case-closed .case-file__headline {
+  margin-bottom: 1.25rem;
+}
+
+.case-closed-card {
+  text-align: center;
+}
+
+.case-closed-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
-  margin: 1rem 0 1.25rem;
-}
-
-@media (min-width: 400px) {
-  .case-board {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-  }
+  gap: 1.75rem;
+  margin: 0 auto 1rem;
+  max-width: 320px;
 }
 
 .case-mug {
   text-align: center;
   z-index: 1;
-}
-
-.case-mug p {
-  margin: 0.4rem 0 0;
-  font-size: 0.8rem;
-  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .case-mug .role {
@@ -898,43 +894,41 @@ html[data-ui-tone='heat'] .whack-btn {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
-  margin: 0.15rem 0 0;
+  margin: 0 0 0.5rem;
 }
 
-.case-string-svg {
-  flex-shrink: 1;
+.case-winner .role {
+  color: var(--accent);
 }
 
-.case-string--h {
-  display: none;
-  width: 100%;
-  max-width: 200px;
-  height: 40px;
+.case-name {
+  margin: 0.55rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
-.case-string--v {
-  display: block;
-  width: 40px;
-  height: 72px;
-  margin: 0 auto;
+.case-name--target {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
 }
 
-@media (min-width: 400px) {
-  .case-string--h {
-    display: block;
-    width: 72px;
-    max-width: 100px;
-    height: 36px;
-    align-self: center;
-  }
-
-  .case-string--v {
-    display: none;
-  }
+.case-eliminated {
+  margin: 0.65rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--danger);
 }
 
-.tally-stroke {
-  margin-right: 1px;
+.case-weapon {
+  margin: 0.85rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.case-weapon strong {
+  font-size: 1.05rem;
 }
 
 .case-kia .avatar-mugshot {
@@ -942,32 +936,48 @@ html[data-ui-tone='heat'] .whack-btn {
   position: relative;
 }
 
+/* Red X with soft / faded spike ends (wide transparent tails) */
 .case-kia .avatar-mugshot::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    transparent 44%,
-    color-mix(in srgb, var(--danger) 85%, transparent) 45%,
-    color-mix(in srgb, var(--danger) 85%, transparent) 50%,
-    transparent 51%
-  ),
+  pointer-events: none;
+  background:
+    linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 28%,
+      color-mix(in srgb, var(--danger) 25%, transparent) 38%,
+      color-mix(in srgb, var(--danger) 92%, transparent) 47.5%,
+      color-mix(in srgb, var(--danger) 92%, transparent) 52.5%,
+      color-mix(in srgb, var(--danger) 25%, transparent) 62%,
+      transparent 72%,
+      transparent 100%
+    ),
     linear-gradient(
       -135deg,
-      transparent 44%,
-      color-mix(in srgb, var(--danger) 85%, transparent) 45%,
-      color-mix(in srgb, var(--danger) 85%, transparent) 50%,
-      transparent 51%
+      transparent 0%,
+      transparent 28%,
+      color-mix(in srgb, var(--danger) 25%, transparent) 38%,
+      color-mix(in srgb, var(--danger) 92%, transparent) 47.5%,
+      color-mix(in srgb, var(--danger) 92%, transparent) 52.5%,
+      color-mix(in srgb, var(--danger) 25%, transparent) 62%,
+      transparent 72%,
+      transparent 100%
     );
-  pointer-events: none;
 }
 
-.case-details {
-  margin-top: 1rem;
-  padding-top: 0.85rem;
+.case-time {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
   border-top: 1px dashed var(--border);
-  font-size: 0.9rem;
+}
+
+.case-time-clock {
+  margin: 0.35rem 0 0;
+  font-family: ui-monospace, monospace;
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .case-tally-row {
@@ -978,9 +988,38 @@ html[data-ui-tone='heat'] .whack-btn {
   margin-top: 0.35rem;
 }
 
+.case-tally-row--center {
+  justify-content: center;
+  margin-top: 0.65rem;
+}
+
+.tally-stroke {
+  margin-right: 1px;
+}
+
 .case-tally-marks {
   font-family: ui-monospace, monospace;
   letter-spacing: 0.08em;
   color: var(--danger);
   font-weight: 700;
+}
+
+.case-file__actions {
+  justify-content: center;
+  width: 100%;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  flex-direction: column;
+  align-items: center;
+}
+
+.case-file__actions .btn,
+.case-file__actions .btn--primary {
+  width: 100%;
+  max-width: 220px;
+}
+
+.case-file__actions .muted {
+  text-align: center;
 }

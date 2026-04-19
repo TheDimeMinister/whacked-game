@@ -501,95 +501,66 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
     const targetLabel = victimName ?? '…'
 
     return (
-      <div className="screen game-screen case-file">
+      <div className="screen game-screen case-file case-closed">
         <p className="case-file__title">After-action report</p>
         <h1 className="case-file__headline">Case closed</h1>
-        {banner ? <p className="banner">{banner}</p> : null}
         {acceptedEvent && p ? (
-          <section className="card reveal-card">
-            <div className="case-board">
-              <div className="case-mug">
-                <p className="role">Hitter</p>
-                <AvatarMugshot label={hitterLabel} size={80} />
-                <p>
+          <section className="card reveal-card case-closed-card">
+            <div className="case-closed-stack">
+              <div className="case-mug case-winner">
+                <p className="role">Winner</p>
+                <AvatarMugshot label={hitterLabel} size={96} />
+                <p className="case-name">
                   <strong>{hitterLabel}</strong>
                   {p.whacker_id === user?.id ? ' (you)' : ''}
                 </p>
               </div>
-              <svg
-                className="case-string-svg case-string--h"
-                viewBox="0 0 120 28"
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                <path
-                  d="M0,14 C35,4 85,24 120,14"
-                  fill="none"
-                  stroke="var(--danger)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <svg
-                className="case-string-svg case-string--v"
-                viewBox="0 0 28 100"
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                <path
-                  d="M14,0 C4,35 24,85 14,100"
-                  fill="none"
-                  stroke="var(--danger)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+
               <div className="case-mug case-kia">
-                <p className="role">Target</p>
-                <AvatarMugshot label={targetLabel} size={80} />
-                <p>
+                <AvatarMugshot label={targetLabel} size={96} />
+                <p className="case-eliminated">Eliminated</p>
+                <p className="case-weapon">
+                  <span className="muted">Piece used</span>
+                  <br />
+                  <strong>{p.weapon_name ?? '?'}</strong>
+                </p>
+                <p className="case-name case-name--target">
                   <strong>{targetLabel}</strong>
                   {p.victim_id === user?.id ? ' (you)' : ''}
                 </p>
               </div>
             </div>
-            <div className="case-details">
-              <p>
-                <span className="muted">Piece used:</span>{' '}
-                <strong>{p.weapon_name ?? '?'}</strong>
-              </p>
-              {caseElapsed ? (
-                <>
-                  <p className="muted small" style={{ marginTop: '0.65rem' }}>
-                    Time on the street (since go-live)
-                  </p>
-                  <p style={{ fontFamily: 'ui-monospace, monospace', fontSize: '1.15rem' }}>
-                    {caseElapsed.clock}
-                  </p>
-                  {caseElapsed.days > 0 ? (
-                    <div className="case-tally-row">
-                      <span className="muted small">Day marks</span>
-                      <span className="case-tally-marks" aria-label={`${caseElapsed.days} days`}>
-                        {Array.from(
-                          { length: Math.min(caseElapsed.days, 28) },
-                          (_, i) => (
-                            <span key={i} className="tally-stroke">
-                              |
-                            </span>
-                          ),
-                        )}
-                        {caseElapsed.days > 28 ? (
-                          <span className="muted small"> +{caseElapsed.days - 28}</span>
-                        ) : null}
-                      </span>
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
+
+            {caseElapsed ? (
+              <div className="case-time">
+                <p className="muted small">Time on the street</p>
+                <p className="case-time-clock">{caseElapsed.clock}</p>
+                {caseElapsed.days > 0 ? (
+                  <div className="case-tally-row case-tally-row--center">
+                    <span className="muted small">Day marks</span>
+                    <span
+                      className="case-tally-marks"
+                      aria-label={`${caseElapsed.days} days`}
+                    >
+                      {Array.from(
+                        { length: Math.min(caseElapsed.days, 28) },
+                        (_, i) => (
+                          <span key={i} className="tally-stroke">
+                            |
+                          </span>
+                        ),
+                      )}
+                      {caseElapsed.days > 28 ? (
+                        <span className="muted small"> +{caseElapsed.days - 28}</span>
+                      ) : null}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
-        <div className="btn-row">
+        <div className="btn-row case-file__actions">
           {isHost ? (
             <button
               type="button"
