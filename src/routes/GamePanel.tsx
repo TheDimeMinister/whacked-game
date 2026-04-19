@@ -79,9 +79,15 @@ export type GamePanelProps = {
   gameId: string
   /** When true, hide header link back to lobby (combined room view). */
   embedded?: boolean
+  /** From case closed / cancelled: return to room lobby (ready + host Start game). */
+  onLeavePostGame?: () => void
 }
 
-export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
+export function GamePanel({
+  gameId,
+  embedded = false,
+  onLeavePostGame,
+}: GamePanelProps) {
   const { supabase, user } = useAuth()
   const { setActiveGameId } = useGameSession()
   const { setHeat } = useUiTone()
@@ -432,22 +438,6 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
     },
   })
 
-  const playAgainMut = useMutation({
-    mutationFn: async () => {
-      const lobbyId = gameQ.data!.lobby_id
-      const { data, error } = await supabase.rpc('start_game', {
-        p_lobby_id: lobbyId,
-      })
-      if (error) throw error
-      return { newId: data as string, lobbyId }
-    },
-    onSuccess: ({ newId, lobbyId }) => {
-      setActiveGameId(newId)
-      void qc.invalidateQueries({ queryKey: ['lobby_latest_game', lobbyId] })
-      void qc.invalidateQueries({ queryKey: ['game', newId] })
-    },
-  })
-
   const myWeapon = weaponsQ.data?.find((w) => w.id === assignmentQ.data?.weapon_id)
 
   const isTarget =
@@ -495,8 +485,6 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
       p?.victim_id && revealProfilesQ.data
         ? revealProfilesQ.data[p.victim_id]
         : undefined
-    const isHost = lobbyMiniQ.data?.host_id === user?.id
-
     const hitterLabel = whackerName ?? '…'
     const targetLabel = victimName ?? '…'
 
@@ -561,27 +549,28 @@ export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
           </section>
         ) : null}
         <div className="btn-row case-file__actions">
-          {isHost ? (
-            <button
-              type="button"
+          {onLeavePostGame ? (
+            <>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => onLeavePostGame()}
+              >
+                Play again
+              </button>
+              <p className="muted small">
+                You&apos;ll return to the room to ready up. The host starts the next
+                game from there when there are enough players.
+              </p>
+            </>
+          ) : !embedded ? (
+            <Link
+              to={`/app/lobby/${gameQ.data.lobby_id}`}
               className="btn btn--primary"
-              onClick={() => playAgainMut.mutate()}
-              disabled={playAgainMut.isPending}
             >
-              {playAgainMut.isPending ? 'Starting…' : 'Play again'}
-            </button>
-          ) : (
-            <p className="muted small">Waiting for host to start the next round.</p>
-          )}
-          {!embedded ? (
-            <Link to={`/app/lobby/${gameQ.data.lobby_id}`} className="btn">
               Back to room
             </Link>
-          ) : (
-            <p className="muted small">
-              When the host starts the next round, the game will appear here again.
-            </p>
-          )}
+          ) : null}
         </div>
       </div>
     )

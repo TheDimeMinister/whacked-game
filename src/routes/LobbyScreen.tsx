@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
@@ -40,6 +40,10 @@ export function LobbyScreen() {
   const [joinName, setJoinName] = useState('')
   const [botLabel, setBotLabel] = useState('Bot')
   const [err, setErr] = useState<string | null>(null)
+  /** After case closed, hide embedded game until a new active game (same id + ended = stay on room UI). */
+  const [postGameDismissedGameId, setPostGameDismissedGameId] = useState<
+    string | null
+  >(null)
 
   const lobbyId = routeLobbyId ?? null
 
@@ -98,6 +102,11 @@ export function LobbyScreen() {
 
   const latestGame = latestGameQ.data
 
+  useEffect(() => {
+    if (!latestGame) return
+    if (latestGame.status === 'active') setPostGameDismissedGameId(null)
+  }, [latestGame?.id, latestGame?.status])
+
   const wasInLatestEndedGameQ = useQuery({
     queryKey: [
       'lobby_latest_assignment',
@@ -121,13 +130,48 @@ export function LobbyScreen() {
     },
   })
 
+  const lobbyBlocksGamePanel =
+    lobbyQ.data != null && lobbyQ.data.status !== 'open'
+
   const showGamePanel = Boolean(
-    latestGame?.id &&
+    !lobbyBlocksGamePanel &&
+      latestGame?.id &&
       (latestGame.status === 'active' ||
         ((latestGame.status === 'ended' ||
           latestGame.status === 'cancelled') &&
-          wasInLatestEndedGameQ.data === true)),
+          wasInLatestEndedGameQ.data === true &&
+          postGameDismissedGameId !== latestGame.id)),
   )
+
+  const handleLeavePostGame = useCallback(() => {
+    setErr(null)
+    if (lobbyQ.data?.status !== 'open') {
+      setPostGameDismissedGameId(null)
+      setActiveGameId(null)
+      setActiveLobbyId(null)
+      void navigate('/app/lobby', { replace: true })
+      return
+    }
+    if (latestGame?.id) setPostGameDismissedGameId(latestGame.id)
+    setActiveGameId(null)
+    void qc.invalidateQueries({ queryKey: ['lobby_members', lobbyId] })
+  }, [
+    latestGame?.id,
+    lobbyId,
+    lobbyQ.data?.status,
+    navigate,
+    qc,
+    setActiveGameId,
+    setActiveLobbyId,
+  ])
+
+  useEffect(() => {
+    if (!lobbyId || !lobbyQ.data || lobbyQ.data.status === 'open') return
+    setPostGameDismissedGameId(null)
+    setActiveGameId(null)
+    setActiveLobbyId(null)
+    void navigate('/app/lobby', { replace: true })
+  }, [lobbyId, lobbyQ.data?.status, navigate, setActiveGameId, setActiveLobbyId])
 
   const membersQ = useQuery({
     queryKey: ['lobby_members', lobbyId],
@@ -443,9 +487,25 @@ export function LobbyScreen() {
     )
   }
 
+  if (lobbyQ.data.status !== 'open') {
+    return (
+      <div className="screen lobby-screen">
+        <p className="muted">This room has ended.</p>
+        <Link to="/app/lobby" className="btn btn--primary">
+          Create or join a lobby
+        </Link>
+      </div>
+    )
+  }
+
   if (showGamePanel && latestGame?.id) {
     return (
-      <GamePanel key={latestGame.id} gameId={latestGame.id} embedded />
+      <GamePanel
+        key={latestGame.id}
+        gameId={latestGame.id}
+        embedded
+        onLeavePostGame={handleLeavePostGame}
+      />
     )
   }
 
