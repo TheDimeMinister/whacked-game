@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { useAuth } from './providers/AuthProvider'
+import { useGameSession } from './providers/GameSessionProvider'
 import { AuthScreen } from './routes/AuthScreen'
 import { GameScreen } from './routes/GameScreen'
 import { LobbyScreen } from './routes/LobbyScreen'
@@ -21,6 +22,14 @@ function HomeRedirect() {
   return <Navigate to="/auth" replace />
 }
 
+function AppHome() {
+  const { activeGameId } = useGameSession()
+  if (activeGameId) {
+    return <Navigate to={`/app/game/${activeGameId}`} replace />
+  }
+  return <Navigate to="/app/lobby" replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -34,7 +43,7 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to="/app/lobby" replace />} />
+        <Route index element={<AppHome />} />
         <Route path="lobby" element={<LobbyScreen />} />
         <Route path="lobby/:lobbyId" element={<LobbyScreen />} />
         <Route path="game" element={<GameScreen />} />
