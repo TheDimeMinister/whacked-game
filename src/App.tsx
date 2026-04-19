@@ -3,7 +3,7 @@ import { Layout } from './components/Layout'
 import { useAuth } from './providers/AuthProvider'
 import { useGameSession } from './providers/GameSessionProvider'
 import { AuthScreen } from './routes/AuthScreen'
-import { GameScreen } from './routes/GameScreen'
+import { GameRedirect } from './routes/GameRedirect'
 import { LobbyScreen } from './routes/LobbyScreen'
 import { ProfileScreen } from './routes/ProfileScreen'
 import { RequireAuth } from './routes/RequireAuth'
@@ -23,9 +23,9 @@ function HomeRedirect() {
 }
 
 function AppHome() {
-  const { activeGameId } = useGameSession()
-  if (activeGameId) {
-    return <Navigate to={`/app/game/${activeGameId}`} replace />
+  const { activeLobbyId } = useGameSession()
+  if (activeLobbyId) {
+    return <Navigate to={`/app/lobby/${activeLobbyId}`} replace />
   }
   return <Navigate to="/app/lobby" replace />
 }
@@ -46,8 +46,8 @@ export default function App() {
         <Route index element={<AppHome />} />
         <Route path="lobby" element={<LobbyScreen />} />
         <Route path="lobby/:lobbyId" element={<LobbyScreen />} />
-        <Route path="game" element={<GameScreen />} />
-        <Route path="game/:gameId" element={<GameScreen />} />
+        <Route path="game" element={<Navigate to="/app/lobby" replace />} />
+        <Route path="game/:gameId" element={<GameRedirect />} />
         <Route path="profile" element={<ProfileScreen />} />
         <Route path="store" element={<StoreScreen />} />
       </Route>

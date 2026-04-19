@@ -2,27 +2,18 @@ import { NavLink } from 'react-router-dom'
 import { useGameSession } from '../providers/GameSessionProvider'
 
 export function BottomNav() {
-  const { activeGameId, activeLobbyId } = useGameSession()
-  const gameTo = activeGameId ? `/app/game/${activeGameId}` : '/app/game'
-  const lobbyTo = activeLobbyId ? `/app/lobby/${activeLobbyId}` : '/app/lobby'
+  const { activeLobbyId } = useGameSession()
+  const roomTo = activeLobbyId ? `/app/lobby/${activeLobbyId}` : '/app/lobby'
 
   return (
-    <nav className="bottom-nav" aria-label="Main">
+    <nav className="bottom-nav bottom-nav--three" aria-label="Main">
       <NavLink
-        to={gameTo}
+        to={roomTo}
         className={({ isActive }) =>
           `bottom-nav__link ${isActive ? 'bottom-nav__link--active' : ''}`
         }
       >
-        Game
-      </NavLink>
-      <NavLink
-        to={lobbyTo}
-        className={({ isActive }) =>
-          `bottom-nav__link ${isActive ? 'bottom-nav__link--active' : ''}`
-        }
-      >
-        Lobby
+        Room
       </NavLink>
       <NavLink
         to="/app/profile"

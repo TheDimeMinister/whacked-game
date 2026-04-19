@@ -3,6 +3,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
+import { GamePanel } from './GamePanel'
+
+type LatestGameRow = {
+  id: string
+  lobby_id: string
+  status: 'active' | 'ended' | 'cancelled'
+  winner_user_id: string | null
+  ended_reason: string | null
+}
 
 type LobbyRow = {
   id: string
@@ -71,6 +80,55 @@ export function LobbyScreen() {
     },
   })
 
+  const latestGameQ = useQuery({
+    queryKey: ['lobby_latest_game', lobbyId],
+    enabled: !!lobbyId && !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('games' as never)
+        .select('id, lobby_id, status, winner_user_id, ended_reason')
+        .eq('lobby_id', lobbyId!)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      return data as LatestGameRow | null
+    },
+  })
+
+  const latestGame = latestGameQ.data
+
+  const wasInLatestEndedGameQ = useQuery({
+    queryKey: [
+      'lobby_latest_assignment',
+      latestGame?.id,
+      user?.id,
+      latestGame?.status,
+    ],
+    enabled:
+      !!latestGame?.id &&
+      !!user &&
+      latestGame.status !== 'active',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assignments' as never)
+        .select('game_id')
+        .eq('game_id', latestGame!.id)
+        .eq('user_id', user!.id)
+        .maybeSingle()
+      if (error) throw error
+      return Boolean(data)
+    },
+  })
+
+  const showGamePanel = Boolean(
+    latestGame?.id &&
+      (latestGame.status === 'active' ||
+        ((latestGame.status === 'ended' ||
+          latestGame.status === 'cancelled') &&
+          wasInLatestEndedGameQ.data === true)),
+  )
+
   const membersQ = useQuery({
     queryKey: ['lobby_members', lobbyId],
     enabled: !!lobbyId && !!user,
@@ -129,6 +187,18 @@ export function LobbyScreen() {
         },
         () => {
           void qc.invalidateQueries({ queryKey: ['lobby', lobbyId] })
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'games',
+          filter: `lobby_id=eq.${lobbyId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ['lobby_latest_game', lobbyId] })
         },
       )
       .subscribe()
@@ -202,7 +272,8 @@ export function LobbyScreen() {
     },
     onSuccess: (gameId) => {
       setActiveGameId(gameId)
-      void navigate(`/app/game/${gameId}`)
+      void qc.invalidateQueries({ queryKey: ['lobby_latest_game', lobbyId] })
+      void qc.invalidateQueries({ queryKey: ['lobby_latest_assignment'] })
     },
     onError: (e: Error) => setErr(e.message),
   })
@@ -294,13 +365,13 @@ export function LobbyScreen() {
     if (activeLobbyId) {
       return (
         <div className="screen lobby-screen">
-          <p className="muted">Opening your lobby…</p>
+          <p className="muted">Opening your room…</p>
         </div>
       )
     }
     return (
       <div className="screen lobby-screen">
-        <h1>Lobby</h1>
+        <h1>Room</h1>
         <p className="muted">Create a room or join with a code.</p>
         {err ? <p className="error">{err}</p> : null}
         <button
@@ -314,7 +385,6 @@ export function LobbyScreen() {
         >
           {createMut.isPending ? 'Creating…' : 'Create lobby'}
         </button>
-        <div className="divider">or join</div>
         <label className="field">
           <span>Invite code</span>
           <input
@@ -347,10 +417,17 @@ export function LobbyScreen() {
     )
   }
 
-  if (lobbyQ.isLoading || membersQ.isLoading) {
+  if (
+    lobbyQ.isLoading ||
+    membersQ.isLoading ||
+    latestGameQ.isLoading ||
+    (latestGame &&
+      latestGame.status !== 'active' &&
+      wasInLatestEndedGameQ.isLoading)
+  ) {
     return (
       <div className="screen">
-        <p className="muted">Loading lobby…</p>
+        <p className="muted">Loading room…</p>
       </div>
     )
   }
@@ -358,7 +435,7 @@ export function LobbyScreen() {
   if (lobbyQ.isError || !lobbyQ.data) {
     return (
       <div className="screen">
-        <p className="error">Lobby not found or you are not a member.</p>
+        <p className="error">Room not found or you are not a member.</p>
         <Link to="/app/lobby" className="btn">
           Back
         </Link>
@@ -366,15 +443,21 @@ export function LobbyScreen() {
     )
   }
 
+  if (showGamePanel && latestGame?.id) {
+    return (
+      <GamePanel key={latestGame.id} gameId={latestGame.id} embedded />
+    )
+  }
+
   return (
     <div className="screen lobby-screen">
-      <h1>Lobby</h1>
+      <h1>Room</h1>
       {err ? <p className="error">{err}</p> : null}
       <section className="card">
         <p className="muted">Invite code</p>
         <p className="mono big-code">{lobbyQ.data.invite_code}</p>
         <p className="muted small">
-          Share this code so friends can join from the Lobby tab.
+          Share this code so friends can join from the Room tab.
         </p>
       </section>
 
@@ -503,7 +586,7 @@ export function LobbyScreen() {
           void navigate('/app/lobby', { replace: true })
         }}
       >
-        Leave lobby list
+        Leave room
       </Link>
     </div>
   )

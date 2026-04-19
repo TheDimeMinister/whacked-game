@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { HoldReveal } from '../components/HoldReveal'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
@@ -72,15 +72,17 @@ type AdminDebugSnapshot = {
   }>
 }
 
-export function GameScreen() {
-  const { gameId: paramGameId } = useParams()
-  const navigate = useNavigate()
+export type GamePanelProps = {
+  gameId: string
+  /** When true, hide header link back to lobby (combined room view). */
+  embedded?: boolean
+}
+
+export function GamePanel({ gameId, embedded = false }: GamePanelProps) {
   const { supabase, user } = useAuth()
-  const { activeGameId, setActiveGameId } = useGameSession()
+  const { setActiveGameId } = useGameSession()
   const qc = useQueryClient()
   const [adminDebugOpen, setAdminDebugOpen] = useState(false)
-
-  const gameId = paramGameId ?? activeGameId
 
   const profileSelfQ = useQuery({
     queryKey: ['my_profile', user?.id],
@@ -103,7 +105,7 @@ export function GameScreen() {
       const { data, error } = await supabase
         .from('games')
         .select('id, lobby_id, status, winner_user_id, ended_reason')
-        .eq('id', gameId!)
+        .eq('id', gameId)
         .single()
       if (error) throw error
       return data as GameRow
@@ -117,7 +119,7 @@ export function GameScreen() {
       const { data, error } = await supabase
         .from('assignments')
         .select('game_id, user_id, target_user_id, weapon_id')
-        .eq('game_id', gameId!)
+        .eq('game_id', gameId)
         .eq('user_id', user!.id)
         .maybeSingle()
       if (error) throw error
@@ -165,7 +167,7 @@ export function GameScreen() {
       const { data, error } = await supabase
         .from('whack_attempts')
         .select('id, game_id, declarer_id, target_user_id, weapon_id, status')
-        .eq('game_id', gameId!)
+        .eq('game_id', gameId)
         .eq('status', 'pending_target')
         .or(`declarer_id.eq.${user!.id},target_user_id.eq.${user!.id}`)
         .maybeSingle()
@@ -182,7 +184,7 @@ export function GameScreen() {
       const { data, error } = await supabase
         .from('game_events')
         .select('id, game_id, event_type, payload, created_at')
-        .eq('game_id', gameId!)
+        .eq('game_id', gameId)
         .order('created_at', { ascending: false })
         .limit(40)
       if (error) throw error
@@ -258,7 +260,6 @@ export function GameScreen() {
 
   const adminBotDeclareMut = useMutation({
     mutationFn: async (botUserId: string) => {
-      if (!gameId) throw new Error('No game')
       const { data, error } = await supabase.rpc(
         'admin_bot_declare_whack' as never,
         { p_game_id: gameId, p_bot_user_id: botUserId } as never,
@@ -322,9 +323,13 @@ export function GameScreen() {
           table: 'games',
           filter: `id=eq.${gameId}`,
         },
-        () => {
+        (payload) => {
           void qc.invalidateQueries({ queryKey: ['game', gameId] })
           void qc.invalidateQueries({ queryKey: ['admin_debug_game', gameId] })
+          const lid = (payload.new as { lobby_id?: string })?.lobby_id
+          if (lid) {
+            void qc.invalidateQueries({ queryKey: ['lobby_latest_game', lid] })
+          }
         },
       )
       .on(
@@ -402,11 +407,12 @@ export function GameScreen() {
         p_lobby_id: lobbyId,
       })
       if (error) throw error
-      return data as string
+      return { newId: data as string, lobbyId }
     },
-    onSuccess: (newId) => {
+    onSuccess: ({ newId, lobbyId }) => {
       setActiveGameId(newId)
-      void navigate(`/app/game/${newId}`)
+      void qc.invalidateQueries({ queryKey: ['lobby_latest_game', lobbyId] })
+      void qc.invalidateQueries({ queryKey: ['game', newId] })
     },
   })
 
@@ -416,18 +422,6 @@ export function GameScreen() {
     pendingWhackQ.data &&
     pendingWhackQ.data.target_user_id === user?.id &&
     pendingWhackQ.data.status === 'pending_target'
-
-  if (!gameId) {
-    return (
-      <div className="screen game-screen">
-        <h1>Game</h1>
-        <p className="muted">No active game. Start one from the Lobby tab.</p>
-        <Link to="/app/lobby" className="btn btn--primary">
-          Go to lobby
-        </Link>
-      </div>
-    )
-  }
 
   if (gameQ.isLoading) {
     return (
@@ -444,7 +438,11 @@ export function GameScreen() {
         <button type="button" className="btn" onClick={() => setActiveGameId(null)}>
           Clear session
         </button>
-        <Link to="/app/lobby">Lobby</Link>
+        {!embedded ? (
+          <Link to="/app/lobby" className="btn btn--primary">
+            Room
+          </Link>
+        ) : null}
       </div>
     )
   }
@@ -500,9 +498,15 @@ export function GameScreen() {
           ) : (
             <p className="muted small">Waiting for host to start the next round.</p>
           )}
-          <Link to={`/app/lobby/${gameQ.data.lobby_id}`} className="btn">
-            Back to lobby
-          </Link>
+          {!embedded ? (
+            <Link to={`/app/lobby/${gameQ.data.lobby_id}`} className="btn">
+              Back to room
+            </Link>
+          ) : (
+            <p className="muted small">
+              When the host starts the next round, the game will appear here again.
+            </p>
+          )}
         </div>
       </div>
     )
@@ -512,9 +516,13 @@ export function GameScreen() {
     <div className="screen game-screen">
       <header className="game-header">
         <p className="muted">Whacked!</p>
-        <Link to={`/app/lobby/${gameQ.data.lobby_id}`} className="linkish small">
-          Lobby
-        </Link>
+        {!embedded ? (
+          <Link to={`/app/lobby/${gameQ.data.lobby_id}`} className="linkish small">
+            Room
+          </Link>
+        ) : (
+          <span className="muted small">In this room</span>
+        )}
       </header>
 
       {banner ? <p className="banner subtle">{banner}</p> : null}

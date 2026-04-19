@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
@@ -11,6 +12,7 @@ export function Layout() {
   pathRef.current = location.pathname
   const { supabase, user } = useAuth()
   const { activeLobbyId, setActiveGameId } = useGameSession()
+  const qc = useQueryClient()
 
   useEffect(() => {
     if (!user?.id || !activeLobbyId) return
@@ -29,7 +31,10 @@ export function Layout() {
           const row = payload.new as { id?: string; status?: string }
           if (!row?.id || row.status !== 'active') return
           setActiveGameId(row.id)
-          const path = `/app/game/${row.id}`
+          void qc.invalidateQueries({
+            queryKey: ['lobby_latest_game', activeLobbyId],
+          })
+          const path = `/app/lobby/${activeLobbyId}`
           if (pathRef.current !== path) {
             void navigate(path, { replace: true })
           }
@@ -40,7 +45,7 @@ export function Layout() {
     return () => {
       void supabase.removeChannel(ch)
     }
-  }, [user?.id, activeLobbyId, supabase, navigate, setActiveGameId])
+  }, [user?.id, activeLobbyId, supabase, navigate, setActiveGameId, qc])
 
   return (
     <div className="app-shell">
