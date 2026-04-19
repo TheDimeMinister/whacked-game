@@ -23,6 +23,8 @@ See `.env.example` for Render / Vercel notes.
 
 Native shells load the same Vite build as the website (`webDir`: `dist`). App id: `app.whacked.game` (change in [`capacitor.config.ts`](capacitor.config.ts) before store submission if you use a different bundle id).
 
+**Store release checklist:** [docs/MOBILE_STORE_DEPLOYMENT.md](docs/MOBILE_STORE_DEPLOYMENT.md)
+
 **Prerequisites**
 
 - Node 20+ (see `engines` in `package.json`).
