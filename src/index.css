@@ -95,9 +95,15 @@ a {
   min-height: 100dvh;
 }
 
-@media (max-width: 639px) {
+@media (max-width: 599px) {
   .app-shell.brand-stage .app-main {
     padding-top: clamp(30vh, 10.5rem, 44vh);
+  }
+}
+
+@media (min-width: 600px) {
+  .app-shell.brand-stage .app-main {
+    padding-top: clamp(8vh, 4.5rem, 22vh);
   }
 }
 
@@ -222,7 +228,11 @@ html[data-ui-tone='heat'] .bottom-nav__link--active {
   position: relative;
 }
 
-/* Mobile: centered logo tile (no wide scene crop); desktop: full scene */
+/*
+  Viewport <600px: portrait art uses contain = uniform scale, full image visible (“zoom out”
+  until it fits). No squash; bars use background-color. Reexport art near 9:16, e.g.
+  1080×1920 (baseline) or 1440×2560 / 1290×2796 for sharper tall phones.
+*/
 .brand-stage::before {
   content: '';
   position: fixed;
@@ -233,17 +243,14 @@ html[data-ui-tone='heat'] .bottom-nav__link--active {
   background-image:
     linear-gradient(
       155deg,
-      color-mix(in srgb, #030406 92%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 8%, transparent) 40%,
-      color-mix(in srgb, #020305 94%, transparent) 100%
+      color-mix(in srgb, #030406 82%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent) 38%,
+      color-mix(in srgb, #020305 80%, transparent) 100%
     ),
-    url('/brand/whacked-logo-no-bg.svg');
-  background-size:
-    100% 100%,
-    min(82vw, 300px) auto;
-  background-position:
-    center,
-    center 11%;
+    url('/brand/whacked-bg-mobile.png');
+  background-size: 100% 100%, contain;
+  /* Image top = viewport top; letterboxing only below (UI sits over that band) */
+  background-position: center, center top;
   background-repeat: no-repeat;
 }
 
@@ -251,21 +258,17 @@ html[data-ui-tone='heat'] .brand-stage::before {
   background-image:
     linear-gradient(
       155deg,
-      color-mix(in srgb, #060304 92%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 10%, transparent) 42%,
-      color-mix(in srgb, #040203 94%, transparent) 100%
+      color-mix(in srgb, #060304 82%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 40%,
+      color-mix(in srgb, #040203 82%, transparent) 100%
     ),
-    url('/brand/whacked-logo-no-bg.svg');
-  background-size:
-    100% 100%,
-    min(82vw, 300px) auto;
-  background-position:
-    center,
-    center 11%;
+    url('/brand/whacked-bg-mobile.png');
+  background-size: 100% 100%, contain;
+  background-position: center, center top;
   background-repeat: no-repeat;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 600px) {
   .brand-stage::before {
     background-image:
       linear-gradient(
@@ -337,7 +340,7 @@ html[data-ui-tone='heat'] .brand-stage::before {
     max(1.5rem, env(safe-area-inset-bottom, 0px));
 }
 
-@media (max-width: 639px) {
+@media (max-width: 599px) {
   .auth-screen.brand-stage {
     justify-content: flex-start;
     padding-top: clamp(34vh, 11rem, 46vh);
@@ -351,9 +354,10 @@ html[data-ui-tone='heat'] .brand-stage::before {
   width: 100%;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 600px) {
   .auth-screen.brand-stage {
     justify-content: flex-start;
+    padding-top: clamp(14vh, 9.5rem, 40vh);
   }
 
   .auth-screen__stack {
@@ -762,6 +766,22 @@ html[data-ui-tone='heat'] .lobby-screen .btn-row {
 .lobby-screen > .linkish {
   margin-top: 0;
   align-self: flex-start;
+}
+
+/* In-app tab screens: sit in lower half on wide viewports (room for brand backdrop art) */
+@media (min-width: 600px) {
+  .app-shell.brand-stage .screen.lobby-screen,
+  .app-shell.brand-stage .screen.profile-screen,
+  .app-shell.brand-stage .screen.store-screen {
+    padding-top: clamp(14vh, 9rem, 36vh);
+  }
+
+  .app-shell.brand-stage .screen.store-screen .store-screen__body {
+    justify-content: flex-start;
+    min-height: 0;
+    margin-top: 0;
+    padding-top: 0.35rem;
+  }
 }
 
 /* Store — sit below hero logo, cluster toward vertical center */
@@ -1240,31 +1260,6 @@ html[data-ui-tone='heat'] .whack-btn {
   max-height: 12rem;
 }
 
-/* Welcome: no solid black “tile” + no duplicate backdrop logo — logo sits on page gradient only */
-@media (max-width: 639px) {
-  .welcome-screen.brand-stage::before {
-    background-color: transparent;
-    background-image: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--bg) 22%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 14%, transparent) 48%,
-      color-mix(in srgb, var(--bg) 75%, transparent) 100%
-    );
-    background-size: 100% 100%;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
-
-  html[data-ui-tone='heat'] .welcome-screen.brand-stage::before {
-    background-image: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--bg) 28%, transparent) 0%,
-      color-mix(in srgb, var(--accent) 18%, transparent) 48%,
-      color-mix(in srgb, var(--bg) 78%, transparent) 100%
-    );
-  }
-}
-
 .welcome-stack {
   max-width: 420px;
   width: 100%;
@@ -1274,7 +1269,7 @@ html[data-ui-tone='heat'] .whack-btn {
   gap: 1.15rem;
 }
 
-/* Welcome splash — phones: UI in lower half (room for backdrop logo); tablet+ centered */
+/* Welcome splash — phones: UI stacked over mobile scene; tablet+ centered */
 .welcome-screen {
   min-height: 100%;
   min-height: 100dvh;
@@ -1285,7 +1280,7 @@ html[data-ui-tone='heat'] .whack-btn {
   padding-bottom: max(3rem, env(safe-area-inset-bottom, 0px));
 }
 
-@media (max-width: 639px) {
+@media (max-width: 599px) {
   .welcome-screen.brand-stage {
     align-items: center;
     padding-top: clamp(28vh, 9.5rem, 44vh);
@@ -1293,10 +1288,15 @@ html[data-ui-tone='heat'] .whack-btn {
   }
 }
 
-@media (min-width: 640px) {
+@media (min-width: 600px) {
   .welcome-screen {
     align-items: center;
     padding: 2rem var(--page-pad-x) 3rem;
+  }
+
+  .welcome-screen.brand-stage {
+    padding-top: clamp(14vh, 10rem, 38vh);
+    padding-bottom: max(3rem, env(safe-area-inset-bottom, 0px));
   }
 }
 
