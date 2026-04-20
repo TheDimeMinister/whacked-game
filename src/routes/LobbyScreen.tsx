@@ -167,6 +167,14 @@ export function LobbyScreen() {
     setActiveLobbyId,
   ])
 
+  const handleLeaveRoomFromGame = useCallback(() => {
+    setErr(null)
+    setPostGameDismissedGameId(null)
+    setActiveGameId(null)
+    setActiveLobbyId(null)
+    void navigate('/app/lobby', { replace: true })
+  }, [navigate, setActiveGameId, setActiveLobbyId])
+
   useEffect(() => {
     if (!lobbyId || !lobbyQ.data || lobbyQ.data.status === 'open') return
     setPostGameDismissedGameId(null)
@@ -335,6 +343,19 @@ export function LobbyScreen() {
       setActiveGameId(null)
       setActiveLobbyId(null)
       void navigate('/app/lobby', { replace: true })
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+
+  const resetLobbyAfterGameMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('host_reset_lobby_ready' as never, {
+        p_lobby_id: lobbyId,
+      } as never)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['lobby_members', lobbyId] })
     },
     onError: (e: Error) => setErr(e.message),
   })
@@ -533,6 +554,13 @@ export function LobbyScreen() {
           gameId={latestGame.id}
           embedded
           onLeavePostGame={handleLeavePostGame}
+          onResetLobby={
+            isHost && lobbyId
+              ? () => resetLobbyAfterGameMut.mutateAsync()
+              : undefined
+          }
+          resetLobbyBusy={resetLobbyAfterGameMut.isPending}
+          onLeaveRoom={handleLeaveRoomFromGame}
           onOpenFieldManual={() => setRulesOpen(true)}
         />
         <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />

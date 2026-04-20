@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { AvatarMugshot } from '../components/AvatarMugshot'
 import { CharacterPickerModal } from '../components/CharacterPickerModal'
 import { RulesModal } from '../components/RulesModal'
@@ -8,6 +8,8 @@ import { useAuth } from '../providers/AuthProvider'
 
 export function AuthScreen() {
   const { user, loading, signIn, signUp } = useAuth()
+  const [searchParams] = useSearchParams()
+  const resetSuccess = searchParams.get('reset') === 'success'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -79,6 +81,11 @@ export function AuthScreen() {
         </header>
         <div className="auth-screen__panel">
           <p className="tagline auth-tagline">Real-world stealth. Minimal evidence.</p>
+          {resetSuccess ? (
+            <p className="form-msg" role="status">
+              Password updated. Sign in with your new password.
+            </p>
+          ) : null}
           <form className="auth-form" onSubmit={submit}>
             <label className="field">
               <span>Email</span>
@@ -126,6 +133,11 @@ export function AuthScreen() {
             <button className="btn btn--primary" type="submit" disabled={busy}>
               {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
             </button>
+            {mode === 'signin' ? (
+              <Link className="linkish auth-forgot-link" to="/auth/forgot-password">
+                Forgot password?
+              </Link>
+            ) : null}
           </form>
           <button
             type="button"

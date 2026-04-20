@@ -28,11 +28,13 @@ type StatsRow = {
 const DOSSIER_MUGSHOT_PX = 96
 
 export function ProfileScreen() {
-  const { supabase, user, signOut } = useAuth()
+  const { supabase, user, signOut, updatePassword } = useAuth()
   const qc = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
   const [filedBanner, setFiledBanner] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pwMsg, setPwMsg] = useState<string | null>(null)
+  const [pwBusy, setPwBusy] = useState(false)
 
   const profileQ = useQuery({
     queryKey: ['profile_me', user?.id],
@@ -342,6 +344,66 @@ export function ProfileScreen() {
                 <p className="error">Bureau rejected the filing. Try again.</p>
               ) : null}
             </form>
+            </details>
+
+            <details className="dossier-amend card">
+              <summary>Change password</summary>
+              <form
+                className="auth-form"
+                style={{ marginTop: '0.75rem' }}
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  setPwMsg(null)
+                  const fd = new FormData(e.currentTarget)
+                  const next = String(fd.get('new_password') ?? '')
+                  const again = String(fd.get('new_password_confirm') ?? '')
+                  if (next.length < 6) {
+                    setPwMsg('Password must be at least 6 characters.')
+                    return
+                  }
+                  if (next !== again) {
+                    setPwMsg('Passwords do not match.')
+                    return
+                  }
+                  setPwBusy(true)
+                  const { error } = await updatePassword(next)
+                  setPwBusy(false)
+                  if (error) setPwMsg(error.message)
+                  else {
+                    setPwMsg('Password updated.')
+                    e.currentTarget.reset()
+                  }
+                }}
+              >
+                <label className="field">
+                  <span>New password</span>
+                  <input
+                    name="new_password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                  />
+                </label>
+                <label className="field">
+                  <span>Confirm new password</span>
+                  <input
+                    name="new_password_confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                  />
+                </label>
+                {pwMsg ? <p className="form-msg">{pwMsg}</p> : null}
+                <button
+                  className="btn btn--primary btn--compact"
+                  type="submit"
+                  disabled={pwBusy}
+                >
+                  {pwBusy ? 'Updating…' : 'Update password'}
+                </button>
+              </form>
             </details>
           </div>
         </div>

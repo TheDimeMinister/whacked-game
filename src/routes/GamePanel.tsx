@@ -81,6 +81,12 @@ export type GamePanelProps = {
   embedded?: boolean
   /** From case closed / cancelled: return to room lobby (ready + host Start game). */
   onLeavePostGame?: () => void
+  /** Host only: clear all Ready flags in the open lobby (call before onLeavePostGame when combined in UI). */
+  onResetLobby?: () => Promise<void>
+  /** While host reset RPC is in flight. */
+  resetLobbyBusy?: boolean
+  /** Leave this room entirely (clear session + room list). */
+  onLeaveRoom?: () => void
   /** Embedded in room tab: open field manual (rules) from parent. */
   onOpenFieldManual?: () => void
 }
@@ -89,6 +95,9 @@ export function GamePanel({
   gameId,
   embedded = false,
   onLeavePostGame,
+  onResetLobby,
+  resetLobbyBusy = false,
+  onLeaveRoom,
   onOpenFieldManual,
 }: GamePanelProps) {
   const { supabase, user } = useAuth()
@@ -146,11 +155,29 @@ export function GamePanel({
     },
   })
 
+  const pendingWhackQ = useQuery({
+    queryKey: ['pending_whack', gameId, user?.id],
+    enabled: !!gameId && !!user && gameQ.data?.status === 'active',
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whack_attempts')
+        .select('id, game_id, declarer_id, target_user_id, weapon_id, status')
+        .eq('game_id', gameId)
+        .eq('status', 'pending_target')
+        .or(`declarer_id.eq.${user!.id},target_user_id.eq.${user!.id}`)
+        .maybeSingle()
+      if (error) throw error
+      return data as WhackRow | null
+    },
+    refetchInterval: 15_000,
+  })
+
   const weaponIds = useMemo(() => {
     const ids = new Set<string>()
     if (assignmentQ.data?.weapon_id) ids.add(assignmentQ.data.weapon_id)
+    if (pendingWhackQ.data?.weapon_id) ids.add(pendingWhackQ.data.weapon_id)
     return [...ids]
-  }, [assignmentQ.data])
+  }, [assignmentQ.data, pendingWhackQ.data])
 
   const weaponsQ = useQuery({
     queryKey: ['weapons', weaponIds],
@@ -179,21 +206,21 @@ export function GamePanel({
     },
   })
 
-  const pendingWhackQ = useQuery({
-    queryKey: ['pending_whack', gameId, user?.id],
-    enabled: !!gameId && !!user && gameQ.data?.status === 'active',
+  const declarerProfileQ = useQuery({
+    queryKey: ['profile_whack_declarer', pendingWhackQ.data?.declarer_id, gameId],
+    enabled:
+      !!pendingWhackQ.data?.declarer_id &&
+      pendingWhackQ.data.target_user_id === user?.id &&
+      pendingWhackQ.data.status === 'pending_target',
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('whack_attempts')
-        .select('id, game_id, declarer_id, target_user_id, weapon_id, status')
-        .eq('game_id', gameId)
-        .eq('status', 'pending_target')
-        .or(`declarer_id.eq.${user!.id},target_user_id.eq.${user!.id}`)
-        .maybeSingle()
+        .from('profiles')
+        .select('id, display_name')
+        .eq('id', pendingWhackQ.data!.declarer_id)
+        .single()
       if (error) throw error
-      return data as WhackRow | null
+      return data as ProfileMini
     },
-    refetchInterval: 15_000,
   })
 
   const eventsQ = useQuery({
@@ -448,6 +475,13 @@ export function GamePanel({
     pendingWhackQ.data.target_user_id === user?.id &&
     pendingWhackQ.data.status === 'pending_target'
 
+  const whackRespondHitterName = declarerProfileQ.isPending
+    ? '…'
+    : declarerProfileQ.data?.display_name?.trim() || 'Another player'
+  const whackRespondWeaponName =
+    weaponsQ.data?.find((w) => w.id === pendingWhackQ.data?.weapon_id)?.name ??
+    'an unknown piece'
+
   if (gameQ.isLoading) {
     return (
       <div className="screen">
@@ -562,7 +596,7 @@ export function GamePanel({
             ) : null}
           </section>
         ) : null}
-        <div className="btn-row case-file__actions">
+        <div className="btn-row case-file__actions case-file__actions--postgame">
           {onLeavePostGame ? (
             <>
               <button
@@ -570,11 +604,40 @@ export function GamePanel({
                 className="btn btn--primary"
                 onClick={() => onLeavePostGame()}
               >
-                Play again
+                Return to room
               </button>
-              <p className="muted small">
-                You&apos;ll return to the room to ready up. The host starts the next
-                game from there when there are enough players.
+              {onResetLobby ? (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={resetLobbyBusy}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await onResetLobby()
+                        onLeavePostGame()
+                      } catch {
+                        /* LobbyScreen sets error from mutation */
+                      }
+                    })()
+                  }}
+                >
+                  {resetLobbyBusy ? 'Resetting…' : 'Reset room & return'}
+                </button>
+              ) : null}
+              {onLeaveRoom ? (
+                <button
+                  type="button"
+                  className="linkish danger"
+                  onClick={() => onLeaveRoom()}
+                >
+                  Leave room
+                </button>
+              ) : null}
+              <p className="muted small case-file__actions-note">
+                Return to the room to ready up; the host starts the next game when
+                there are enough players. Host can reset everyone&apos;s Ready first
+                if you want a clean slate.
               </p>
             </>
           ) : !embedded ? (
@@ -647,10 +710,18 @@ export function GamePanel({
       </div>
 
       {isTarget ? (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
-            <h2>They filed on you?</h2>
-            <p className="muted">Someone says the piece landed. Your call.</p>
+        <div
+          className="modal-overlay modal-overlay--whack-respond"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="whack-respond-title"
+        >
+          <div className="modal modal--whack-respond">
+            <h2 id="whack-respond-title">You have been whacked!</h2>
+            <p className="muted">
+              {whackRespondHitterName} claims to have eliminated you, using{' '}
+              {whackRespondWeaponName}.
+            </p>
             <div className="btn-row">
               <button
                 type="button"

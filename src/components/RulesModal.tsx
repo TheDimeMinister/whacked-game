@@ -76,9 +76,11 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
             marks, same chaos.
           </p>
         </div>
-        <button type="button" className="btn btn--primary" onClick={onClose}>
-          Understood
-        </button>
+        <div className="rules-modal__footer">
+          <button type="button" className="btn btn--primary" onClick={onClose}>
+            Understood
+          </button>
+        </div>
       </div>
     </div>
   )

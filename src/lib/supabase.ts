@@ -6,6 +6,7 @@ export function createSupabase(env: Env): SupabaseClient {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
     },
   })
 }

@@ -3,6 +3,8 @@ import { Layout } from './components/Layout'
 import { useAuth } from './providers/AuthProvider'
 import { useGameSession } from './providers/GameSessionProvider'
 import { AuthScreen } from './routes/AuthScreen'
+import { ForgotPasswordScreen } from './routes/ForgotPasswordScreen'
+import { ResetPasswordScreen } from './routes/ResetPasswordScreen'
 import { WelcomeScreen } from './routes/WelcomeScreen'
 import { GameRedirect } from './routes/GameRedirect'
 import { LobbyScreen } from './routes/LobbyScreen'
@@ -37,6 +39,8 @@ export default function App() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/welcome" element={<WelcomeScreen />} />
       <Route path="/auth" element={<AuthScreen />} />
+      <Route path="/auth/forgot-password" element={<ForgotPasswordScreen />} />
+      <Route path="/auth/reset-password" element={<ResetPasswordScreen />} />
       <Route
         path="/app"
         element={

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getAuthRedirectBase } from '../lib/siteUrl'
 
 export type SignUpExtra = {
   /** Saved to `profiles.avatar_key` via signup metadata + `handle_new_user`. */
@@ -27,6 +28,10 @@ type AuthCtx = {
     password: string,
     extra?: SignUpExtra,
   ) => Promise<{ error: Error | null }>
+  resetPasswordForEmail: (
+    email: string,
+  ) => Promise<{ error: Error | null }>
+  updatePassword: (password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -69,11 +74,39 @@ export function AuthProvider({
   const signUp = useCallback(
     async (email: string, password: string, extra?: SignUpExtra) => {
       const key = extra?.avatarKey?.trim()
+      const base = getAuthRedirectBase()
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        ...(key ? { options: { data: { avatar_key: key } } } : {}),
+        options: {
+          emailRedirectTo: base ? `${base}/auth` : undefined,
+          ...(key ? { data: { avatar_key: key } } : {}),
+        },
       })
+      return { error: error as Error | null }
+    },
+    [supabase],
+  )
+
+  const resetPasswordForEmail = useCallback(
+    async (email: string) => {
+      const base = getAuthRedirectBase()
+      if (!base) {
+        return {
+          error: new Error('Missing site URL — open the app from your live domain.'),
+        }
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${base}/auth/reset-password`,
+      })
+      return { error: error as Error | null }
+    },
+    [supabase],
+  )
+
+  const updatePassword = useCallback(
+    async (password: string) => {
+      const { error } = await supabase.auth.updateUser({ password })
       return { error: error as Error | null }
     },
     [supabase],
@@ -91,9 +124,20 @@ export function AuthProvider({
       loading,
       signIn,
       signUp,
+      resetPasswordForEmail,
+      updatePassword,
       signOut,
     }),
-    [supabase, session, loading, signIn, signUp, signOut],
+    [
+      supabase,
+      session,
+      loading,
+      signIn,
+      signUp,
+      resetPasswordForEmail,
+      updatePassword,
+      signOut,
+    ],
   )
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

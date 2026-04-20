@@ -3,6 +3,8 @@ import { z } from 'zod'
 const schema = z.object({
   VITE_SUPABASE_URL: z.string().url(),
   VITE_SUPABASE_ANON_KEY: z.string().min(20),
+  /** Optional: server/build only; browser auth uses window.location.origin */
+  VITE_SITE_URL: z.string().url().optional(),
 })
 
 export function parseEnv() {
