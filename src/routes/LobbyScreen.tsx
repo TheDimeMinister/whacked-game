@@ -14,12 +14,25 @@ type LatestGameRow = {
   ended_reason: string | null
 }
 
+type WeaponPackRow = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  is_mature: boolean
+  sort_order: number
+}
+
 type LobbyRow = {
   id: string
   invite_code: string
   host_id: string
   weapon_pack_id: string
   status: string
+  weapon_packs: Pick<
+    WeaponPackRow,
+    'name' | 'slug' | 'is_mature'
+  > | null
 }
 
 type MemberRow = {
@@ -46,6 +59,7 @@ export function LobbyScreen() {
   const [postGameDismissedGameId, setPostGameDismissedGameId] = useState<
     string | null
   >(null)
+  const [createPackId, setCreatePackId] = useState<string | null>(null)
 
   const lobbyId = routeLobbyId ?? null
 
@@ -64,7 +78,9 @@ export function LobbyScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lobbies' as never)
-        .select('id, invite_code, host_id, weapon_pack_id, status')
+        .select(
+          'id, invite_code, host_id, weapon_pack_id, status, weapon_packs(name, slug, is_mature)',
+        )
         .eq('id', lobbyId!)
         .single()
       if (error) throw error
@@ -268,10 +284,31 @@ export function LobbyScreen() {
     void navigate('/app/lobby', { replace: true })
   }, [lobbyId, user, lobbyQ.isError, navigate, setActiveLobbyId])
 
+  const packsQ = useQuery({
+    queryKey: ['weapon_packs_lobby'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('weapon_packs' as never)
+        .select('id, slug, name, description, is_mature, sort_order')
+        .eq('is_premium', false)
+        .order('sort_order', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as WeaponPackRow[]
+    },
+  })
+
+  useEffect(() => {
+    if (createPackId !== null) return
+    const def = packsQ.data?.find((p) => p.slug === 'default')
+    if (def) setCreatePackId(def.id)
+  }, [packsQ.data, createPackId])
+
   const createMut = useMutation({
     mutationFn: async () => {
+      const packId = createPackId ?? packsQ.data?.find((p) => p.slug === 'default')?.id
       const { data, error } = await supabase.rpc('create_lobby' as never, {
-        p_weapon_pack_id: null,
+        p_weapon_pack_id: packId ?? null,
       } as never)
       if (error) throw error
       return data as LobbyRow
@@ -343,6 +380,20 @@ export function LobbyScreen() {
       setActiveGameId(null)
       setActiveLobbyId(null)
       void navigate('/app/lobby', { replace: true })
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+
+  const setPackMut = useMutation({
+    mutationFn: async (packId: string) => {
+      const { error } = await supabase.rpc('host_set_lobby_weapon_pack' as never, {
+        p_lobby_id: lobbyId,
+        p_weapon_pack_id: packId,
+      } as never)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['lobby', lobbyId] })
     },
     onError: (e: Error) => setErr(e.message),
   })
@@ -428,6 +479,12 @@ export function LobbyScreen() {
   const isAdminHost =
     isHost && profileSelfQ.data?.app_role === 'admin'
 
+  const lobbyPackMeta = useMemo(() => {
+    const wp = lobbyQ.data?.weapon_packs
+    if (!wp) return null
+    return Array.isArray(wp) ? wp[0] : wp
+  }, [lobbyQ.data?.weapon_packs])
+
   if (!lobbyId) {
     if (activeLobbyId) {
       return (
@@ -453,6 +510,44 @@ export function LobbyScreen() {
           <div className="lobby-screen__sheet glass-surface">
             <p className="muted">Create a room or join with a code.</p>
             {err ? <p className="error">{err}</p> : null}
+            <label className="field lobby-pack-field">
+              <span>Weapon pack (scene)</span>
+              <select
+                className="lobby-pack-select"
+                value={createPackId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value
+                  const pack = packsQ.data?.find((p) => p.id === id)
+                  if (pack?.is_mature) {
+                    const ok = window.confirm(
+                      'This pack uses explicit adult humor and language. Only choose it if everyone in the room agrees. Continue?',
+                    )
+                    if (!ok) {
+                      e.target.value = createPackId ?? ''
+                      return
+                    }
+                  }
+                  setCreatePackId(id || null)
+                }}
+                disabled={!packsQ.data?.length}
+              >
+                {!packsQ.data?.length ? (
+                  <option value="">Loading packs…</option>
+                ) : (
+                  packsQ.data.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.is_mature ? ' (18+)' : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+              {packsQ.data?.find((p) => p.id === createPackId)?.description ? (
+                <span className="muted small lobby-pack-hint">
+                  {packsQ.data.find((p) => p.id === createPackId)?.description}
+                </span>
+              ) : null}
+            </label>
             <button
               type="button"
               className="btn btn--primary"
@@ -460,7 +555,7 @@ export function LobbyScreen() {
                 setErr(null)
                 createMut.mutate()
               }}
-              disabled={createMut.isPending}
+              disabled={createMut.isPending || !createPackId}
             >
               {createMut.isPending ? 'Creating…' : 'Create lobby'}
             </button>
@@ -613,9 +708,69 @@ export function LobbyScreen() {
         </ul>
         <p className="muted small">
           Ready: {readyCount} / {total}. In the match when you start: {inMatchCount}{' '}
-          (includes host even without Ready — need 4+).
+          (includes host even without Ready — need at least 2).
         </p>
       </section>
+
+      {isHost ? (
+        <section className="card">
+          <h2>Weapon pack</h2>
+          <p className="muted small">
+            Current:{' '}
+            <strong>{lobbyPackMeta?.name ?? 'Standard'}</strong>
+            {lobbyPackMeta?.is_mature ? (
+              <span className="pill pill--ready" style={{ marginLeft: '0.35rem' }}>
+                18+
+              </span>
+            ) : null}
+          </p>
+          <label className="field lobby-pack-field">
+            <span>Change pack (before starting)</span>
+            <select
+              className="lobby-pack-select"
+              value={lobbyQ.data.weapon_pack_id}
+              disabled={
+                setPackMut.isPending ||
+                packsQ.isLoading ||
+                latestGame?.status === 'active'
+              }
+              onChange={(e) => {
+                const id = e.target.value
+                if (id === lobbyQ.data.weapon_pack_id) return
+                const pack = packsQ.data?.find((p) => p.id === id)
+                if (pack?.is_mature) {
+                  const ok = window.confirm(
+                    'This pack uses explicit adult humor. Confirm everyone in the room is okay with it.',
+                  )
+                  if (!ok) return
+                }
+                setErr(null)
+                setPackMut.mutate(id)
+              }}
+            >
+              {(packsQ.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.is_mature ? ' (18+)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      ) : (
+        <section className="card">
+          <h2>Weapon pack</h2>
+          <p className="muted small">
+            This round uses:{' '}
+            <strong>{lobbyPackMeta?.name ?? '—'}</strong>
+            {lobbyPackMeta?.is_mature ? (
+              <span className="pill pill--ready" style={{ marginLeft: '0.35rem' }}>
+                18+
+              </span>
+            ) : null}
+          </p>
+        </section>
+      )}
 
       {isAdminHost ? (
         <section className="card">
@@ -687,7 +842,7 @@ export function LobbyScreen() {
               setErr(null)
               startMut.mutate()
             }}
-            disabled={startMut.isPending || inMatchCount < 4 || total < 4}
+            disabled={startMut.isPending || inMatchCount < 2 || total < 2}
           >
             {startMut.isPending ? 'Starting…' : 'Start game'}
           </button>

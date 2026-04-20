@@ -784,6 +784,16 @@ html[data-ui-tone='heat'] .lobby-screen .btn-row {
   gap: 0.52rem;
 }
 
+.lobby-pack-hint {
+  display: block;
+  margin-top: 0.4rem;
+  line-height: 1.45;
+}
+
+.lobby-pack-select {
+  width: 100%;
+}
+
 .pill {
   font-size: 0.62rem;
   text-transform: uppercase;

@@ -29,7 +29,7 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
         </div>
         <p className="muted small">
           Whacked! is a real-world party game: a true test of loyalties,
-          requirig a strong poker face, filled with hilarious tension.
+          requiring a strong poker face, filled with hilarious tension.
         </p>
         <div className="rules-scroll">
         <h3 className="rules-h">Overview</h3>
@@ -39,9 +39,11 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
           </p>
           <h3 className="rules-h">The room</h3>
           <p>
-            Someone opens a <strong>room</strong> and shares the invite code.
-            Everyone joins, marks ready, and the host starts the round when you
-            have enough players.
+            Someone opens a <strong>room</strong>, chooses a <strong>weapon pack</strong>{' '}
+            that fits the setting (office, school, pub, family-friendly home, sports
+            locker, shisha lounge, etc.), and shares the invite code. Everyone joins,
+            marks ready, and the host can start with <strong>two or more</strong> players
+            (bigger groups keep targets a mystery).
           </p>
           <h3 className="rules-h">The contract</h3>
           <p>
