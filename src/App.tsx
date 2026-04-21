@@ -7,6 +7,7 @@ import { ForgotPasswordScreen } from './routes/ForgotPasswordScreen'
 import { ResetPasswordScreen } from './routes/ResetPasswordScreen'
 import { WelcomeScreen } from './routes/WelcomeScreen'
 import { GameRedirect } from './routes/GameRedirect'
+import { LeaderboardScreen } from './routes/LeaderboardScreen'
 import { LobbyScreen } from './routes/LobbyScreen'
 import { ProfileScreen } from './routes/ProfileScreen'
 import { RequireAuth } from './routes/RequireAuth'
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="lobby/:lobbyId" element={<LobbyScreen />} />
         <Route path="game" element={<Navigate to="/app/lobby" replace />} />
         <Route path="game/:gameId" element={<GameRedirect />} />
+        <Route path="leaderboard" element={<LeaderboardScreen />} />
         <Route path="profile" element={<ProfileScreen />} />
         <Route path="store" element={<StoreScreen />} />
       </Route>

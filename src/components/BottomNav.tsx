@@ -6,7 +6,7 @@ export function BottomNav() {
   const roomTo = activeLobbyId ? `/app/lobby/${activeLobbyId}` : '/app/lobby'
 
   return (
-    <nav className="bottom-nav bottom-nav--three" aria-label="Main">
+    <nav className="bottom-nav" aria-label="Main">
       <NavLink
         to={roomTo}
         className={({ isActive }) =>
@@ -14,6 +14,14 @@ export function BottomNav() {
         }
       >
         Room
+      </NavLink>
+      <NavLink
+        to="/app/leaderboard"
+        className={({ isActive }) =>
+          `bottom-nav__link ${isActive ? 'bottom-nav__link--active' : ''}`
+        }
+      >
+        Board
       </NavLink>
       <NavLink
         to="/app/profile"

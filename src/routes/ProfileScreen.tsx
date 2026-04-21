@@ -2,9 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AvatarMugshot } from '../components/AvatarMugshot'
 import { CharacterPickerModal } from '../components/CharacterPickerModal'
+import { TeamShieldBadge } from '../components/TeamShieldBadge'
 import { useAuth } from '../providers/AuthProvider'
 import { getPresetPortraitUrl } from '../lib/characterPresets'
 import { resolveProfileAvatarUrl } from '../lib/resolveProfileAvatarUrl'
+import {
+  TEAM_SHIELD_OPTIONS,
+  type TeamShieldKey,
+  isTeamShieldKey,
+} from '../lib/teamShields'
 import { TITLE_OPTIONS } from '../lib/titles'
 
 type ProfileRow = {
@@ -35,6 +41,10 @@ export function ProfileScreen() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pwMsg, setPwMsg] = useState<string | null>(null)
   const [pwBusy, setPwBusy] = useState(false)
+  const [officeName, setOfficeName] = useState('')
+  const [officeShield, setOfficeShield] = useState<TeamShieldKey>('vault')
+  const [officeJoinCode, setOfficeJoinCode] = useState('')
+  const [officeMsg, setOfficeMsg] = useState<string | null>(null)
 
   const profileQ = useQuery({
     queryKey: ['profile_me', user?.id],
@@ -47,6 +57,47 @@ export function ProfileScreen() {
         .single()
       if (error) throw error
       return data as ProfileRow
+    },
+  })
+
+  const teamQ = useQuery({
+    queryKey: ['my_team', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('role, teams(id, name, shield_key, invite_code)')
+        .eq('user_id', user!.id)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return null
+      const row = data as {
+        role: string
+        teams:
+          | {
+              id: string
+              name: string
+              shield_key: string
+              invite_code: string
+            }
+          | null
+          | Array<{
+              id: string
+              name: string
+              shield_key: string
+              invite_code: string
+            }>
+      }
+      const t = row.teams
+      const pack = Array.isArray(t) ? t[0] : t
+      if (!pack) return null
+      return {
+        role: row.role as 'owner' | 'member',
+        id: pack.id,
+        name: pack.name,
+        shield_key: pack.shield_key,
+        invite_code: pack.invite_code,
+      }
     },
   })
 
@@ -94,6 +145,48 @@ export function ProfileScreen() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['profile_me'] })
       setFiledBanner(true)
+    },
+  })
+
+  const createTeamMut = useMutation({
+    mutationFn: async (payload: { name: string; shield: TeamShieldKey }) => {
+      const { data, error } = await supabase.rpc('create_team', {
+        p_name: payload.name,
+        p_shield_key: payload.shield,
+      })
+      if (error) throw error
+      return data as
+        | { out_team_id: string; out_invite_code: string }
+        | { out_team_id: string; out_invite_code: string }[]
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my_team'] })
+      void qc.invalidateQueries({ queryKey: ['lobby_members'] })
+    },
+  })
+
+  const joinTeamMut = useMutation({
+    mutationFn: async (code: string) => {
+      const { data, error } = await supabase.rpc('join_team_by_invite', {
+        p_invite_code: code,
+      })
+      if (error) throw error
+      return data as string
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my_team'] })
+      void qc.invalidateQueries({ queryKey: ['lobby_members'] })
+    },
+  })
+
+  const leaveTeamMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('leave_team')
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my_team'] })
+      void qc.invalidateQueries({ queryKey: ['lobby_members'] })
     },
   })
 
@@ -184,35 +277,45 @@ export function ProfileScreen() {
 
   const formKey = profileQ.data?.updated_at ?? profileQ.data?.id ?? 'profile'
 
+  const socialCodenameHint = useMemo(
+    () => Boolean(user?.identities?.some((i) => i.provider !== 'email')),
+    [user?.identities],
+  )
+
   if (!user) return null
 
   return (
     <div className="screen profile-screen">
-      <header className="profile-screen__head">
-        <h1>Dossier</h1>
-        <button
-          type="button"
-          className="profile-logout-btn"
-          aria-label="Sign out"
-          onClick={() => void signOut()}
+      <button
+        type="button"
+        className="profile-logout-btn"
+        aria-label="Sign out"
+        onClick={() => void signOut()}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
         >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
-        </button>
-      </header>
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <polyline points="16 17 21 12 16 7" />
+          <line x1="21" y1="12" x2="9" y2="12" />
+        </svg>
+      </button>
+
+      {socialCodenameHint ? (
+        <p className="muted small profile-oauth-hint" style={{ margin: '0 0 0.65rem' }}>
+          Signed in with Google, Discord, or Facebook? Set your <strong>codename</strong> under
+          Amend dossier — it’s how you appear in rooms.
+        </p>
+      ) : null}
 
       {profileQ.data ? (
+        <>
         <div
           className="dossier-card glass-surface"
           style={{ ['--dossier-mug-size' as string]: `${DOSSIER_MUGSHOT_PX}px` }}
@@ -407,6 +510,135 @@ export function ProfileScreen() {
             </details>
           </div>
         </div>
+
+        <section className="office-card glass-surface" aria-labelledby="office-heading">
+          <h2 id="office-heading">Office</h2>
+          <p className="muted small" style={{ margin: '0 0 0.5rem' }}>
+            Cosmetic guild badge — other operatives see it in the room list when you share a
+            lobby.
+          </p>
+          {officeMsg ? <p className="form-msg">{officeMsg}</p> : null}
+          {teamQ.isLoading ? (
+            <p className="muted small">Loading office…</p>
+          ) : teamQ.data ? (
+            <>
+              <div className="office-card__row">
+                {isTeamShieldKey(teamQ.data.shield_key) ? (
+                  <TeamShieldBadge
+                    shieldKey={teamQ.data.shield_key}
+                    title={teamQ.data.name}
+                    size={36}
+                  />
+                ) : null}
+                <div>
+                  <strong>{teamQ.data.name}</strong>
+                  <p className="muted small" style={{ margin: '0.15rem 0 0' }}>
+                    {teamQ.data.role === 'owner' ? 'Owner' : 'Member'} · invite{' '}
+                    <span className="mono">{teamQ.data.invite_code}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="linkish danger"
+                disabled={leaveTeamMut.isPending}
+                onClick={() => {
+                  setOfficeMsg(null)
+                  if (!window.confirm('Leave this office? You can create or join another later.'))
+                    return
+                  leaveTeamMut.mutate(undefined, {
+                    onError: (e: Error) => setOfficeMsg(e.message),
+                    onSuccess: () => {
+                      setOfficeMsg('Left the office.')
+                    },
+                  })
+                }}
+              >
+                {leaveTeamMut.isPending ? 'Leaving…' : 'Leave office'}
+              </button>
+            </>
+          ) : (
+            <>
+              <label className="field">
+                <span>New office name</span>
+                <input
+                  value={officeName}
+                  onChange={(e) => setOfficeName(e.target.value)}
+                  placeholder="The Night Desk"
+                  maxLength={48}
+                />
+              </label>
+              <p className="muted small" style={{ margin: '0.25rem 0 0.15rem' }}>
+                Shield (shown in lobbies)
+              </p>
+              <div className="office-shield-grid">
+                {TEAM_SHIELD_OPTIONS.map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    className={`office-shield-opt ${officeShield === o.key ? 'office-shield-opt--on' : ''}`}
+                    onClick={() => setOfficeShield(o.key)}
+                  >
+                    <TeamShieldBadge shieldKey={o.key} size={32} />
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={createTeamMut.isPending || !officeName.trim()}
+                onClick={() => {
+                  setOfficeMsg(null)
+                  createTeamMut.mutate(
+                    { name: officeName.trim(), shield: officeShield },
+                    {
+                      onError: (e: Error) => setOfficeMsg(e.message),
+                      onSuccess: (data) => {
+                        const row = Array.isArray(data) ? data[0] : data
+                        const code = row?.out_invite_code ?? '—'
+                        setOfficeMsg(`Office created. Invite code: ${code}`)
+                        setOfficeName('')
+                      },
+                    },
+                  )
+                }}
+              >
+                {createTeamMut.isPending ? 'Creating…' : 'Create office'}
+              </button>
+              <p className="auth-oauth-divider muted small" style={{ margin: '1rem 0 0.5rem' }}>
+                or join with code
+              </p>
+              <label className="field">
+                <span>Office invite code</span>
+                <input
+                  value={officeJoinCode}
+                  onChange={(e) => setOfficeJoinCode(e.target.value)}
+                  placeholder="ABC123"
+                  autoCapitalize="characters"
+                />
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={joinTeamMut.isPending || !officeJoinCode.trim()}
+                onClick={() => {
+                  setOfficeMsg(null)
+                  joinTeamMut.mutate(officeJoinCode.trim(), {
+                    onError: (e: Error) => setOfficeMsg(e.message),
+                    onSuccess: () => {
+                      setOfficeMsg('Joined office.')
+                      setOfficeJoinCode('')
+                    },
+                  })
+                }}
+              >
+                {joinTeamMut.isPending ? 'Joining…' : 'Join office'}
+              </button>
+            </>
+          )}
+        </section>
+        </>
       ) : (
         <p className="muted">Decrypting dossier…</p>
       )}

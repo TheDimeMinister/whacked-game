@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { RulesModal } from '../components/RulesModal'
+import { TeamShieldBadge } from '../components/TeamShieldBadge'
+import { isTeamShieldKey } from '../lib/teamShields'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
 import { GamePanel } from './GamePanel'
@@ -35,6 +37,8 @@ type LobbyRow = {
   > | null
 }
 
+type TeamBadge = { name: string; shield_key: string }
+
 type MemberRow = {
   lobby_id: string
   user_id: string
@@ -42,6 +46,7 @@ type MemberRow = {
   ready: boolean
   left_at: string | null
   is_test_bot?: boolean
+  team: TeamBadge | null
 }
 
 export function LobbyScreen() {
@@ -51,7 +56,6 @@ export function LobbyScreen() {
   const { setActiveGameId, activeLobbyId, setActiveLobbyId } = useGameSession()
   const qc = useQueryClient()
   const [inviteInput, setInviteInput] = useState('')
-  const [joinName, setJoinName] = useState('')
   const [botLabel, setBotLabel] = useState('Bot')
   const [err, setErr] = useState<string | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -210,7 +214,7 @@ export function LobbyScreen() {
         .is('left_at', null)
         .order('joined_at', { ascending: true })
       if (error) throw error
-      const rows = (data ?? []) as Omit<MemberRow, 'is_test_bot'>[]
+      const rows = (data ?? []) as Omit<MemberRow, 'is_test_bot' | 'team'>[]
       if (rows.length === 0) return [] as MemberRow[]
       const ids = rows.map((r) => r.user_id)
       const { data: profs, error: pe } = await supabase
@@ -224,9 +228,29 @@ export function LobbyScreen() {
           p.is_test_bot,
         ]),
       )
+      const { data: teamRows, error: teamErr } = await supabase
+        .from('team_members' as never)
+        .select('user_id, teams(name, shield_key)')
+        .in('user_id', ids)
+      if (teamErr) throw teamErr
+      const teamMap = new Map<string, TeamBadge>()
+      for (const raw of teamRows ?? []) {
+        const row = raw as {
+          user_id: string
+          teams: TeamBadge | TeamBadge[] | null
+        }
+        const t = row.teams
+        const pack = Array.isArray(t) ? t[0] : t
+        if (pack?.name && pack?.shield_key)
+          teamMap.set(row.user_id, {
+            name: pack.name,
+            shield_key: pack.shield_key,
+          })
+      }
       return rows.map((r) => ({
         ...r,
         is_test_bot: botMap.get(r.user_id) ?? false,
+        team: teamMap.get(r.user_id) ?? null,
       })) as MemberRow[]
     },
   })
@@ -326,7 +350,6 @@ export function LobbyScreen() {
         'join_lobby_by_invite' as never,
         {
           p_invite_code: inviteInput.trim(),
-          p_display_name: joinName.trim() || null,
         } as never,
       )
       if (error) throw error
@@ -568,14 +591,10 @@ export function LobbyScreen() {
                 autoCapitalize="characters"
               />
             </label>
-            <label className="field">
-              <span>Display name (optional)</span>
-              <input
-                value={joinName}
-                onChange={(e) => setJoinName(e.target.value)}
-                placeholder="How you appear in the lobby"
-              />
-            </label>
+            <p className="muted small">
+              You appear as your <strong>codename</strong> from Profile — set it there before
+              joining.
+            </p>
             <button
               type="button"
               className="btn"
@@ -691,7 +710,16 @@ export function LobbyScreen() {
         <ul className="member-list">
           {membersQ.data?.map((m) => (
             <li key={m.user_id}>
-              <span>{m.display_name}</span>
+              <div className="lobby-member-line">
+                {m.team && isTeamShieldKey(m.team.shield_key) ? (
+                  <TeamShieldBadge
+                    shieldKey={m.team.shield_key}
+                    title={m.team.name}
+                    size={26}
+                  />
+                ) : null}
+                <span className="lobby-member-name">{m.display_name}</span>
+              </div>
               {m.is_test_bot ? (
                 <span className="pill pill--ready">bot</span>
               ) : null}

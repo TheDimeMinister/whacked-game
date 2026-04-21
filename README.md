@@ -2,6 +2,10 @@
 
 Social party game: React + Vite frontend, Supabase (Postgres + Auth + RLS + RPCs), Express API in `backend/` for privileged routes (e.g. admin test bots, Stripe stubs).
 
+**Tech stack (detailed):** see [`TECH_SPEC.md`](TECH_SPEC.md).
+
+**AI / parked tasks:** see [`AGENTS.md`](AGENTS.md) (e.g. custom SMTP when you pick a provider).
+
 **Repo:** [github.com/TheDimeMinister/whacked-game](https://github.com/TheDimeMinister/whacked-game)
 
 ## Local dev
@@ -10,6 +14,8 @@ Social party game: React + Vite frontend, Supabase (Postgres + Auth + RLS + RPCs
 - **API:** copy env block for backend → `backend/.env`, then `npm run start:api` (or `npm run dev:all` for API + Vite together).
 
 See `.env.example` for Render / Vercel notes.
+
+**Branded auth email:** transactional “From” (e.g. `TheAgency@officeassassination.com`) is configured in the Supabase dashboard under **Authentication → SMTP** (custom SMTP + DNS), not in repo HTML — see [`TECH_SPEC.md`](TECH_SPEC.md).
 
 ## Production (Vercel + Render)
 

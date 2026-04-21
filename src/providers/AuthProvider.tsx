@@ -8,13 +8,15 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { Provider, Session, User } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAuthRedirectBase } from '../lib/siteUrl'
 
 export type SignUpExtra = {
   /** Saved to `profiles.avatar_key` via signup metadata + `handle_new_user`. */
   avatarKey?: string | null
+  /** Becomes `profiles.display_name` (codename) via `handle_new_user` user metadata. */
+  codename?: string | null
 }
 
 type AuthCtx = {
@@ -32,6 +34,7 @@ type AuthCtx = {
     email: string,
   ) => Promise<{ error: Error | null }>
   updatePassword: (password: string) => Promise<{ error: Error | null }>
+  signInWithOAuth: (provider: Provider) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -74,13 +77,17 @@ export function AuthProvider({
   const signUp = useCallback(
     async (email: string, password: string, extra?: SignUpExtra) => {
       const key = extra?.avatarKey?.trim()
+      const codename = extra?.codename?.trim()
       const base = getAuthRedirectBase()
+      const data: Record<string, string> = {}
+      if (key) data.avatar_key = key
+      if (codename) data.display_name = codename
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: base ? `${base}/auth` : undefined,
-          ...(key ? { data: { avatar_key: key } } : {}),
+          ...(Object.keys(data).length ? { data } : {}),
         },
       })
       return { error: error as Error | null }
@@ -112,6 +119,23 @@ export function AuthProvider({
     [supabase],
   )
 
+  const signInWithOAuth = useCallback(
+    async (provider: Provider) => {
+      const base = getAuthRedirectBase()
+      if (!base) {
+        return {
+          error: new Error('Missing site URL — open the app from your live domain.'),
+        }
+      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${base}/auth` },
+      })
+      return { error: error as Error | null }
+    },
+    [supabase],
+  )
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
   }, [supabase])
@@ -126,6 +150,7 @@ export function AuthProvider({
       signUp,
       resetPasswordForEmail,
       updatePassword,
+      signInWithOAuth,
       signOut,
     }),
     [
@@ -136,6 +161,7 @@ export function AuthProvider({
       signUp,
       resetPasswordForEmail,
       updatePassword,
+      signInWithOAuth,
       signOut,
     ],
   )
