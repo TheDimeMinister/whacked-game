@@ -34,7 +34,7 @@ type StatsRow = {
 const DOSSIER_MUGSHOT_PX = 96
 
 export function ProfileScreen() {
-  const { supabase, user, signOut, updatePassword } = useAuth()
+  const { supabase, user, updatePassword } = useAuth()
   const qc = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
   const [filedBanner, setFiledBanner] = useState(false)
@@ -111,8 +111,19 @@ export function ProfileScreen() {
           'user_id, wins, losses, total_whack_declarations, successful_whacks, weapon_counts, badges',
         )
         .eq('user_id', user!.id)
-        .single()
+        .maybeSingle()
       if (error) throw error
+      if (!data) {
+        return {
+          user_id: user!.id,
+          wins: 0,
+          losses: 0,
+          total_whack_declarations: 0,
+          successful_whacks: 0,
+          weapon_counts: {},
+          badges: [],
+        } satisfies StatsRow
+      }
       return data as StatsRow
     },
   })
@@ -286,27 +297,6 @@ export function ProfileScreen() {
 
   return (
     <div className="screen profile-screen">
-      <button
-        type="button"
-        className="profile-logout-btn"
-        aria-label="Sign out"
-        onClick={() => void signOut()}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-      </button>
-
       {socialCodenameHint ? (
         <p className="muted small profile-oauth-hint" style={{ margin: '0 0 0.65rem' }}>
           Signed in with Google, Discord, or Facebook? Set your <strong>codename</strong> under

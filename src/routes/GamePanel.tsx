@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AvatarMugshot } from '../components/AvatarMugshot'
 import { HoldReveal } from '../components/HoldReveal'
+import { resolveProfileAvatarUrl } from '../lib/resolveProfileAvatarUrl'
 import { useAuth } from '../providers/AuthProvider'
 import { useGameSession } from '../providers/GameSessionProvider'
 import { useUiTone } from '../providers/UiToneProvider'
@@ -43,6 +44,10 @@ type GameEventRow = {
 }
 
 type ProfileMini = { id: string; display_name: string | null }
+
+type RevealProfileRow = { id: string; display_name: string | null; avatar_key: string | null }
+
+type RevealProfile = { display_name: string; avatar_key: string | null }
 
 type AdminDebugAssignment = {
   user_id: string
@@ -114,9 +119,9 @@ export function GamePanel({
         .from('profiles')
         .select('app_role')
         .eq('id', user!.id)
-        .single()
+        .maybeSingle()
       if (error) throw error
-      return data as { app_role: string }
+      return (data ?? { app_role: 'user' }) as { app_role: string }
     },
   })
 
@@ -278,12 +283,15 @@ export function GamePanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name')
+        .select('id, display_name, avatar_key')
         .in('id', revealIds)
       if (error) throw error
-      const map: Record<string, string> = {}
-      for (const row of (data ?? []) as ProfileMini[]) {
-        map[row.id] = row.display_name ?? 'Unknown'
+      const map: Record<string, RevealProfile> = {}
+      for (const row of (data ?? []) as RevealProfileRow[]) {
+        map[row.id] = {
+          display_name: row.display_name?.trim() || 'Unknown',
+          avatar_key: row.avatar_key ?? null,
+        }
       }
       return map
     },
@@ -514,16 +522,22 @@ export function GamePanel({
           weapon_name?: string
         }
       | undefined
-    const whackerName =
+    const whackerProfile =
       p?.whacker_id && revealProfilesQ.data
         ? revealProfilesQ.data[p.whacker_id]
         : undefined
-    const victimName =
+    const victimProfile =
       p?.victim_id && revealProfilesQ.data
         ? revealProfilesQ.data[p.victim_id]
         : undefined
-    const hitterLabel = whackerName ?? '…'
-    const targetLabel = victimName ?? '…'
+    const hitterLabel = revealProfilesQ.isPending
+      ? '…'
+      : (whackerProfile?.display_name ?? 'Unknown')
+    const targetLabel = revealProfilesQ.isPending
+      ? '…'
+      : (victimProfile?.display_name ?? 'Unknown')
+    const whackerAvatarUrl = resolveProfileAvatarUrl(whackerProfile?.avatar_key ?? null, null)
+    const victimAvatarUrl = resolveProfileAvatarUrl(victimProfile?.avatar_key ?? null, null)
 
     return (
       <div className="screen game-screen case-file case-closed">
@@ -545,7 +559,7 @@ export function GamePanel({
             <div className="case-closed-stack">
               <div className="case-mug case-winner">
                 <p className="role">Winner</p>
-                <AvatarMugshot label={hitterLabel} size={96} />
+                <AvatarMugshot url={whackerAvatarUrl} label={hitterLabel} size={96} />
                 <p className="case-name">
                   <strong>{hitterLabel}</strong>
                   {p.whacker_id === user?.id ? ' (you)' : ''}
@@ -553,7 +567,7 @@ export function GamePanel({
               </div>
 
               <div className="case-mug case-kia">
-                <AvatarMugshot label={targetLabel} size={96} />
+                <AvatarMugshot url={victimAvatarUrl} label={targetLabel} size={96} />
                 <p className="case-eliminated">Eliminated</p>
                 <p className="case-weapon">
                   <span className="muted">Piece used</span>
@@ -636,8 +650,19 @@ export function GamePanel({
               ) : null}
               <p className="muted small case-file__actions-note">
                 Return to the room to ready up; the host starts the next game when
-                there are enough players. Host can reset everyone&apos;s Ready first
-                if you want a clean slate.
+                there are enough players.
+                {onLeaveRoom ? (
+                  <>
+                    {' '}
+                    Host can reset everyone&apos;s Ready first if you want a clean slate.
+                  </>
+                ) : (
+                  <>
+                    {' '}
+                    To close the room for everyone, return to the room and use{' '}
+                    <strong>End lobby</strong>.
+                  </>
+                )}
               </p>
             </>
           ) : !embedded ? (

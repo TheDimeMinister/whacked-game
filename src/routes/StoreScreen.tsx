@@ -3,7 +3,7 @@ export function StoreScreen() {
     <div className="screen store-screen">
       <div className="store-screen__body">
         <h1>Store</h1>
-        <section className="card glass-surface">
+        <section className="card">
           <p className="muted">More weapons and updates coming soon!</p>
         </section>
       </div>

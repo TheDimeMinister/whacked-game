@@ -1,13 +1,13 @@
-/* Default = calm (off-duty / teal). Active round sets data-ui-tone="heat" on <html>. */
+/* Default = calm (off-duty / violet accent). Active round sets data-ui-tone="heat" on <html>. */
 :root,
 html[data-ui-tone='calm'] {
   color-scheme: dark;
   --bg: #0a0b0f;
   --bg-elevated: #12141c;
   --border: #1e2230;
-  --text: #e8eaef;
-  --muted: #8b92a8;
-  --accent: #3ecfbc;
+  --text: #ffffff;
+  --muted: #ffffff;
+  --accent: #8b7df7;
   --accent-dim: color-mix(in srgb, var(--accent) 35%, transparent);
   --danger: #ff5c7a;
   --radius: 14px;
@@ -30,17 +30,30 @@ html[data-ui-tone='calm'] {
   --card-pad: 1.2rem;
   --card-gap-y: 1rem;
   --form-gap: 1.05rem;
+  /* Frosted panels — shared by .card, .glass-surface, lobby rows (backdrop-filter + compositing for Safari / mobile). */
+  --glass-bg: color-mix(in srgb, var(--bg-elevated) 62%, transparent);
+  --glass-blur: blur(22px) saturate(1.12);
+  --glass-border: color-mix(in srgb, var(--accent) 28%, var(--border));
+  --glass-shadow-inset: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  --glass-shadow-ring: 0 0 0 1px color-mix(in srgb, #000 16%, transparent);
+  --glass-shadow-drop: 0 18px 50px color-mix(in srgb, #000 36%, transparent);
+  --glass-radius: calc(var(--radius) + 2px);
 }
 
 html[data-ui-tone='heat'] {
   --bg: #0c090a;
   --bg-elevated: #161012;
   --border: #2a1e22;
-  --text: #ede8e9;
-  --muted: #9a868a;
+  --text: #ffffff;
+  --muted: #ffffff;
   --accent: #b85c68;
   --accent-dim: color-mix(in srgb, var(--accent) 38%, transparent);
   --danger: #e8485c;
+  --glass-bg: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
+  --glass-border: color-mix(in srgb, var(--accent) 34%, var(--border));
+  --glass-shadow-inset: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent);
+  --glass-shadow-ring: 0 0 0 1px color-mix(in srgb, #000 22%, transparent);
+  --glass-shadow-drop: 0 18px 50px color-mix(in srgb, #000 40%, transparent);
 }
 
 *,
@@ -96,13 +109,13 @@ a {
 }
 
 @media (max-width: 599px) {
-  .app-shell.brand-stage .app-main {
+  .app-shell.brand-stage .app-main__inner {
     padding-top: clamp(30vh, 10.5rem, 44vh);
   }
 }
 
 @media (min-width: 600px) {
-  .app-shell.brand-stage .app-main {
+  .app-shell.brand-stage .app-main__inner {
     padding-top: clamp(8vh, 4.5rem, 22vh);
   }
 }
@@ -117,16 +130,21 @@ a {
   padding: 2.25rem 1.5rem;
 }
 
+/* Full-width scroll so the scrollbar sits on the viewport edge, not beside the narrow column. */
 .app-main {
   flex: 1;
   min-height: 0;
+  width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--page-pad-y) var(--page-pad-x) var(--app-main-scroll-end-gap);
+  scrollbar-gutter: stable;
+}
+
+.app-main__inner {
   max-width: 520px;
   margin: 0 auto;
-  width: 100%;
+  padding: var(--page-pad-y) var(--page-pad-x) var(--app-main-scroll-end-gap);
 }
 
 .bottom-nav {
@@ -138,11 +156,15 @@ a {
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
   padding: 0.45rem 0.65rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--bg) 97%, transparent);
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  border-top: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
-  box-shadow: 0 -8px 32px color-mix(in srgb, #000 35%, transparent);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow-inset),
+    0 -8px 32px color-mix(in srgb, #000 35%, transparent);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .bottom-nav::after {
@@ -377,13 +399,16 @@ html[data-ui-tone='heat'] .brand-stage::before {
 .auth-screen__panel {
   padding: 1.65rem 1.55rem 1.85rem;
   border-radius: calc(var(--radius) + 6px);
-  background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
     0 28px 64px color-mix(in srgb, #000 55%, transparent);
-  backdrop-filter: blur(18px) saturate(1.15);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .auth-brand {
@@ -504,7 +529,7 @@ html[data-ui-tone='heat'] .brand-stage::before {
   border-radius: 1px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, var(--accent));
   background: color-mix(in srgb, var(--bg) 55%, var(--bg-elevated));
-  color: color-mix(in srgb, var(--text) 92%, var(--accent));
+  color: #ffffff;
   font: inherit;
   font-weight: 650;
   font-size: 0.72rem;
@@ -566,7 +591,7 @@ html[data-ui-tone='heat'] .brand-stage::before {
 
 .btn--primary {
   background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
-  color: color-mix(in srgb, var(--accent) 92%, #eafcf9);
+  color: color-mix(in srgb, var(--accent) 92%, #f2f0ff);
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
   text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 35%, transparent);
   box-shadow:
@@ -603,34 +628,25 @@ html[data-ui-tone='heat'] .btn--primary {
   margin-top: 0.9rem;
 }
 
+/* Translucent frosted panels — .card matches .glass-surface everywhere (local + prod, desktop + mobile). */
+.card,
+.glass-surface {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
+    var(--glass-shadow-drop);
+  border-radius: var(--glass-radius);
+  isolation: isolate;
+  transform: translateZ(0);
+}
+
 .card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   padding: var(--card-pad) calc(var(--card-pad) + 0.1rem);
   margin: var(--card-gap-y) 0;
-}
-
-/* Translucent frosted panels — see-through to brand backdrop, readable text */
-.glass-surface {
-  background: color-mix(in srgb, var(--bg-elevated) 62%, transparent);
-  backdrop-filter: blur(22px) saturate(1.12);
-  -webkit-backdrop-filter: blur(22px) saturate(1.12);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent),
-    0 0 0 1px color-mix(in srgb, #000 16%, transparent),
-    0 18px 50px color-mix(in srgb, #000 36%, transparent);
-  border-radius: calc(var(--radius) + 2px);
-}
-
-html[data-ui-tone='heat'] .glass-surface {
-  background: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent),
-    0 0 0 1px color-mix(in srgb, #000 22%, transparent),
-    0 18px 50px color-mix(in srgb, #000 40%, transparent);
 }
 
 .muted {
@@ -791,7 +807,7 @@ html[data-ui-tone='heat'] .glass-surface {
 
 .leaderboard-sort__btn--on {
   border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  color: color-mix(in srgb, var(--accent) 92%, var(--text));
+  color: #ffffff;
   box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
@@ -811,9 +827,11 @@ html[data-ui-tone='heat'] .glass-surface {
   padding: 0.75rem 0.85rem;
   border-radius: calc(var(--radius) + 4px);
   border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
-  background: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
-  backdrop-filter: blur(16px) saturate(1.08);
-  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .leaderboard-row--gold {
@@ -858,7 +876,7 @@ html[data-ui-tone='heat'] .glass-surface {
 }
 
 .leaderboard-row--silver .leaderboard-ranknum {
-  color: color-mix(in srgb, #c5ccd6 92%, var(--text));
+  color: #ffffff;
 }
 
 .leaderboard-row--bronze .leaderboard-ranknum {
@@ -907,7 +925,7 @@ html[data-ui-tone='heat'] .glass-surface {
 }
 
 .leaderboard-meta strong {
-  color: var(--text);
+  color: #ffffff;
 }
 
 .leaderboard-office {
@@ -960,25 +978,6 @@ html[data-ui-tone='heat'] .glass-surface {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  background: color-mix(in srgb, var(--bg-elevated) 58%, transparent);
-  backdrop-filter: blur(22px) saturate(1.12);
-  -webkit-backdrop-filter: blur(22px) saturate(1.12);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent),
-    0 0 0 1px color-mix(in srgb, #000 14%, transparent),
-    0 16px 44px color-mix(in srgb, #000 34%, transparent);
-  border-radius: calc(var(--radius) + 2px);
-}
-
-html[data-ui-tone='heat'] .lobby-screen .card {
-  background: color-mix(in srgb, var(--bg-elevated) 54%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-}
-
-html[data-ui-tone='heat'] .lobby-screen .btn-row {
-  background: color-mix(in srgb, var(--bg-elevated) 52%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .lobby-screen .card h2 {
@@ -1002,14 +1001,17 @@ html[data-ui-tone='heat'] .lobby-screen .btn-row {
   margin-top: 0;
   gap: 0.9rem;
   padding: 0.9rem 1rem 1rem;
-  background: color-mix(in srgb, var(--bg-elevated) 56%, transparent);
-  backdrop-filter: blur(18px) saturate(1.08);
-  -webkit-backdrop-filter: blur(18px) saturate(1.08);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  border-radius: calc(var(--radius) + 2px);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent),
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
     0 12px 36px color-mix(in srgb, #000 30%, transparent);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .lobby-screen > .linkish {
@@ -1075,7 +1077,7 @@ html[data-ui-tone='heat'] .lobby-screen .btn-row {
 }
 
 .pill--ready {
-  color: color-mix(in srgb, var(--accent) 90%, #eafcf9);
+  color: color-mix(in srgb, var(--accent) 90%, #f2f0ff);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 28%, transparent);
@@ -1195,7 +1197,7 @@ html[data-ui-tone='heat'] .pill--ready {
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent) 88%, #f4fffc);
+  color: color-mix(in srgb, var(--accent) 88%, #f2f0ff);
   cursor: pointer;
   background: linear-gradient(
     175deg,
@@ -1287,11 +1289,18 @@ html[data-ui-tone='heat'] .whack-btn {
 .modal {
   width: 100%;
   max-width: 380px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-radius);
   padding: 1.45rem 1.35rem 1.35rem;
-  box-shadow: 0 24px 80px #0008;
+  box-shadow:
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
+    0 24px 80px color-mix(in srgb, #000 55%, transparent);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .character-picker-modal {
@@ -1558,13 +1567,16 @@ html[data-ui-tone='heat'] .whack-btn {
 .welcome-inner--glass {
   padding: 1.45rem 1.55rem 2.05rem;
   border-radius: calc(var(--radius) + 8px);
-  background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
     0 32px 72px color-mix(in srgb, #000 58%, transparent);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .welcome-brand {
@@ -1781,7 +1793,8 @@ html[data-ui-tone='heat'] .whack-btn {
   box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
-.profile-logout-btn {
+/* Fixed on all /app routes (see Layout.tsx). */
+.app-logout-btn {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 0.65rem);
   right: max(var(--page-pad-x), env(safe-area-inset-right, 0px));
@@ -1789,20 +1802,27 @@ html[data-ui-tone='heat'] .whack-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  padding: 0;
+  gap: 0.42rem;
+  padding: 0.42rem 0.72rem 0.46rem;
   margin: 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border: 1px solid var(--glass-border);
   border-radius: 1px;
-  background: color-mix(in srgb, var(--bg-elevated) 52%, transparent);
-  backdrop-filter: blur(14px) saturate(1.06);
-  -webkit-backdrop-filter: blur(14px) saturate(1.06);
-  color: color-mix(in srgb, var(--accent) 42%, var(--muted));
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  isolation: isolate;
+  transform: translateZ(0);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent),
-    0 0 0 1px color-mix(in srgb, #000 14%, transparent),
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
     0 6px 22px color-mix(in srgb, #000 28%, transparent);
   transition:
     background 0.18s ease,
@@ -1811,23 +1831,23 @@ html[data-ui-tone='heat'] .whack-btn {
     color 0.18s ease;
 }
 
-.profile-logout-btn:hover {
-  background: color-mix(in srgb, var(--bg-elevated) 64%, transparent);
+.app-logout-btn:hover {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  color: color-mix(in srgb, var(--accent) 72%, var(--text));
+  color: #ffffff;
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent),
-    0 0 0 1px color-mix(in srgb, #000 16%, transparent),
+    var(--glass-shadow-inset),
+    var(--glass-shadow-ring),
     0 8px 28px color-mix(in srgb, #000 34%, transparent),
     0 0 18px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.profile-logout-btn svg {
-  width: 1.12rem;
-  height: 1.12rem;
+.app-logout-btn svg {
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
-.profile-logout-btn:focus-visible {
+.app-logout-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -1962,18 +1982,6 @@ html[data-ui-tone='heat'] .whack-btn {
 
 .dossier-amend {
   margin-top: 1rem;
-}
-
-.dossier-card .dossier-amend.card {
-  background: color-mix(in srgb, var(--bg) 48%, transparent);
-  backdrop-filter: blur(12px) saturate(1.05);
-  -webkit-backdrop-filter: blur(12px) saturate(1.05);
-  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--accent));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent);
-}
-
-html[data-ui-tone='heat'] .dossier-card .dossier-amend.card {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 
 .dossier-amend summary {

@@ -100,9 +100,9 @@ export function LobbyScreen() {
         .from('profiles' as never)
         .select('app_role')
         .eq('id', user!.id)
-        .single()
+        .maybeSingle()
       if (error) throw error
-      return data as { app_role: string }
+      return (data ?? { app_role: 'user' }) as { app_role: string }
     },
   })
 
@@ -165,13 +165,37 @@ export function LobbyScreen() {
           postGameDismissedGameId !== latestGame.id)),
   )
 
+  /** Mark current user inactive in this lobby so other clients' member lists update. */
+  const markSelfLeftLobby = useCallback(async (): Promise<boolean> => {
+    if (!lobbyId || !user?.id) return true
+    const { error } = await supabase
+      .from('lobby_members' as never)
+      .update({ left_at: new Date().toISOString() } as never)
+      .eq('lobby_id', lobbyId)
+      .eq('user_id', user.id)
+      .is('left_at', null)
+    if (error) {
+      setErr(error.message)
+      return false
+    }
+    void qc.invalidateQueries({ queryKey: ['lobby_members', lobbyId] })
+    return true
+  }, [lobbyId, user?.id, supabase, qc])
+
+  const leaveRoomAndNavigate = useCallback(async () => {
+    setErr(null)
+    const ok = await markSelfLeftLobby()
+    if (!ok) return
+    setActiveLobbyId(null)
+    void navigate('/app/lobby', { replace: true })
+  }, [markSelfLeftLobby, navigate, setActiveLobbyId])
+
   const handleLeavePostGame = useCallback(() => {
     setErr(null)
     if (lobbyQ.data?.status !== 'open') {
       setPostGameDismissedGameId(null)
       setActiveGameId(null)
-      setActiveLobbyId(null)
-      void navigate('/app/lobby', { replace: true })
+      void leaveRoomAndNavigate()
       return
     }
     if (latestGame?.id) setPostGameDismissedGameId(latestGame.id)
@@ -181,19 +205,17 @@ export function LobbyScreen() {
     latestGame?.id,
     lobbyId,
     lobbyQ.data?.status,
-    navigate,
+    leaveRoomAndNavigate,
     qc,
     setActiveGameId,
-    setActiveLobbyId,
   ])
 
   const handleLeaveRoomFromGame = useCallback(() => {
     setErr(null)
     setPostGameDismissedGameId(null)
     setActiveGameId(null)
-    setActiveLobbyId(null)
-    void navigate('/app/lobby', { replace: true })
-  }, [navigate, setActiveGameId, setActiveLobbyId])
+    void leaveRoomAndNavigate()
+  }, [leaveRoomAndNavigate, setActiveGameId])
 
   useEffect(() => {
     if (!lobbyId || !lobbyQ.data || lobbyQ.data.status === 'open') return
@@ -674,7 +696,7 @@ export function LobbyScreen() {
               : undefined
           }
           resetLobbyBusy={resetLobbyAfterGameMut.isPending}
-          onLeaveRoom={handleLeaveRoomFromGame}
+          onLeaveRoom={!isHost ? handleLeaveRoomFromGame : undefined}
           onOpenFieldManual={() => setRulesOpen(true)}
         />
         <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
@@ -890,17 +912,15 @@ export function LobbyScreen() {
         </button>
       ) : null}
 
-      <Link
-        to="/app/lobby"
-        className="linkish"
-        onClick={(e) => {
-          e.preventDefault()
-          setActiveLobbyId(null)
-          void navigate('/app/lobby', { replace: true })
-        }}
-      >
-        Leave room
-      </Link>
+      {!isHost ? (
+        <button
+          type="button"
+          className="linkish"
+          onClick={() => void leaveRoomAndNavigate()}
+        >
+          Leave room
+        </button>
+      ) : null}
       </div>
       <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </>
